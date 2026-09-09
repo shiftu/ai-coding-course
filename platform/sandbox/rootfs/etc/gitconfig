@@ -1,0 +1,14 @@
+# 系统级 git 配置。放 /etc/gitconfig 而不是 ~/.gitconfig ——
+# 沙盒里 HOME=/workspace 是持久卷，家目录里的配置不随镜像走。
+[safe]
+	# 平台会把测评任务仓库预置进 /workspace（docker cp / bind mount / 解压），
+	# 这些方式带进来的属主未必是容器里的用户，git 会直接罢工：
+	#   fatal: detected dubious ownership in repository at '/workspace/task-a'
+	# 后果不是"学员看到一条报错"，而是**证据源 ② git 状态整条哑掉**，
+	# 批改时看起来就像这人一个仓库都没碰过。
+	# 沙盒是一人一容器的隔离环境，这里放开没有实际风险。
+	directory = *
+[init]
+	defaultBranch = main
+[advice]
+	detachedHead = false

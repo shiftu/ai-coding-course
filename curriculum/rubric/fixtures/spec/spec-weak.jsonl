@@ -1,0 +1,8 @@
+{"uuid": "w-001", "type": "user", "timestamp": "2026-08-20T10:00:00Z", "message": {"role": "user", "content": "看一下 README 和 Issue #7，把里面说的都做了。"}}
+{"uuid": "w-002", "type": "user", "timestamp": "2026-08-20T10:00:05Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_x", "content": "ok"}]}}
+{"uuid": "w-003", "type": "assistant", "timestamp": "2026-08-20T10:00:03Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "好的，我先看一下仓库结构..."}]}}
+{"uuid": "w-004", "type": "user", "timestamp": "2026-08-20T10:00:00Z", "message": {"role": "user", "content": "嗯，继续。"}}
+{"uuid": "w-005", "type": "user", "timestamp": "2026-08-20T10:00:05Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_x", "content": "ok"}]}}
+{"uuid": "w-006", "type": "user", "timestamp": "2026-08-20T10:00:00Z", "message": {"role": "user", "content": "都做完了吗？做完就行了。"}}
+{"uuid": "w-007", "type": "user", "timestamp": "2026-08-20T10:00:05Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_x", "content": "ok"}]}}
+{"uuid": "w-008", "type": "user", "timestamp": "2026-08-20T10:00:00Z", "message": {"role": "user", "content": "好，那就这样。"}}

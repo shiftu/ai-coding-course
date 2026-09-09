@@ -1,0 +1,3 @@
+{"uuid": "n-001", "type": "user", "timestamp": "2026-08-20T10:00:00Z", "message": {"role": "user", "content": "修复 Issue #7 描述的 bug。"}}
+{"uuid": "n-002", "type": "user", "timestamp": "2026-08-20T10:00:05Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_x", "content": "ok"}]}}
+{"uuid": "n-003", "type": "assistant", "timestamp": "2026-08-20T10:00:03Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "已修复并通过测试。"}]}}

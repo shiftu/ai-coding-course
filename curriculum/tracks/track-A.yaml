@@ -1,0 +1,116 @@
+track: A
+name: 零基础
+enter_when: 快筛未过，或测评多维 L0
+# 从 D0 起，全部模块顺序走。
+
+modules:
+  - id: m0-env
+    name: 环境与网关
+    kind: 公司特有
+    exempt_test: 四条 --version 全部有输出，且 curl 网关 /v1/models 返回模型列表
+    slices:
+      - tool/env-setup
+      - tool/gateway-connect
+      - safety/gateway-not-public-domain
+      - safety/key-storage
+  - id: m1-map
+    name: 工具全景与协作规范
+    kind: 公司特有
+    exempt_test: 说出三个入口各自的适用场景，并在 Gitea 建一个带 Issue 的 Milestone
+    slices:
+      - tool/toolchain-map
+      - tool/pick-one-entry
+      - tool/session-manage
+      - tool/gitea-milestone
+  - id: m2-pair
+    name: CLI 结对工程师
+    kind: 通用
+    exempt_test: 在分支上用 CLI agent 完成一个小改动：先要计划、收窄范围、看过 diff 后提 PR
+    slices:
+      - tool/plan-before-code
+      - tool/clear-context
+      - safety/no-skip-permissions
+      - quality/read-diff
+  - id: m3-hermes
+    name: Hermes 数字员工
+    kind: 公司特有
+    exempt_test: 建 profile、让它记住一个偏好，新会话验证记忆生效
+    slices:
+      - tool/hermes-profile
+      - tool/hermes-memory
+      - automation/hermes-skills
+      - tool/rollback-checkpoint
+      - quality/subagent-selfreport
+      - automation/delegate
+  - id: m4-spec
+    name: 需求表达
+    kind: 通用
+    exempt_test: 把一个模糊需求写成五要素 spec，含明确的「不做什么」和可测量验收标准
+    slices:
+      - spec/ask-before-code
+      - spec/five-elements
+      - spec/write-non-goals
+      - spec/measurable-acceptance
+      - spec/vague-requirement-cost
+      - spec/plan-then-execute
+  - id: m5-quality
+    name: 质量守门员
+    kind: 通用
+    exempt_test: 先写 3 条失败断言，再让 AI 实现到全绿，PR 里附验证证据
+    slices:
+      - quality/tdd-red-green
+      - quality/evidence-for-done
+      - quality/auto-review
+      - quality/ai-code-needs-test
+      - quality/confirm-before-write
+      - quality/verification-checklist
+      - quality/receiving-review
+  - id: m6-data
+    name: 数据自助
+    kind: 公司特有
+    exempt_test: 查出昨日 DAU 并说清口径（事件定义 + 新老用户拆分逻辑）
+    slices:
+      - tool/query-product-data
+      - tool/metric-definition-first
+      - tool/cost-query
+      - tool/data-has-lag
+      - tool/trace-online-issue
+  - id: m7-auto
+    name: 自动化编排
+    kind: 半通用
+    exempt_test: 建一个 cron 并手动触发一次，确认投递内容到达
+    slices:
+      - automation/first-cron
+      - automation/self-contained-prompt
+      - automation/health-monitor
+      - automation/stable-output
+      - automation/keep-error-alert
+      - automation/webhook-subscribe
+  - id: m8-lark
+    name: 飞书生态
+    kind: 公司特有
+    exempt_test: 用 lark-cli 建一份飞书文档并分享出去
+    slices:
+      - tool/lark-doc
+      - tool/lark-bitable
+      - tool/lark-meeting-summary
+      - safety/lark-identity
+      - tool/lark-doctor
+  - id: m9-redline
+    name: 工程红线
+    kind: 公司特有
+    exempt_test: 查出自己 team 的 7 天用量，并扫描仓库无密钥泄漏
+    slices:
+      - safety/budget-visible
+      - safety/secret-scan
+      - safety/redact-secrets
+      - safety/approvals-mode
+      - safety/audit-sessions
+      - safety/data-boundary
+      - safety/key-rotation
+      - safety/model-cost-choice
+  - id: capstone
+    name: 毕业项目
+    kind: 公司特有
+    slices:
+      - quality/capstone

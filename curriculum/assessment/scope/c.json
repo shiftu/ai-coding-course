@@ -1,0 +1,17 @@
+{
+  "task": "c",
+  "repo": "dep-audit",
+  "ambiguities": [
+    {
+      "term": "有风险的依赖",
+      "issue_line": "Issue 说「有风险的依赖」，但没说只算直接依赖还是含传递依赖（数据里 direct 两种都有）",
+      "criterion": "是否识别出依赖范围（直接／传递）不明"
+    },
+    {
+      "term": "许可证不兼容",
+      "issue_line": "Issue 说「许可证不兼容」，但没说和什么不兼容 —— 项目自身的许可证根本没写明（仓库里没有 LICENSE 文件）",
+      "criterion": "是否识别出兼容性判定缺少基准（项目自身许可证未定义）"
+    }
+  ],
+  "overload_line": "Issue 一共要求 3 件事，而时限只够做 1–2 件"
+}

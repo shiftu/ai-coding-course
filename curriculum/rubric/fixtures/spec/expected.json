@@ -1,0 +1,15 @@
+{
+  "_note": "合成 fixture。学员的话就是纯文本，合成能忠实表达输入；但这不是真人打的字，真人数据待标定小组（设计文档 §4.5）。期望值先于 judge.py 写成。",
+  "spec-strong.jsonl": {
+    "verdict": "pass",
+    "_why": "明确指出两处歧义、显式拍板并说明理由、交代了未完成项及原因"
+  },
+  "spec-weak.jsonl": {
+    "verdict": "fail",
+    "_why": "全程只转述与催促，未识别任何歧义，未交代范围"
+  },
+  "spec-single.jsonl": {
+    "verdict": "n/a",
+    "_why": "只有一条初始任务描述，没有可供判定的表达行为"
+  }
+}

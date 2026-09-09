@@ -1,0 +1,34 @@
+# 单版本策略的唯一真源（设计文档 §7）。
+# 哨兵 cron 每周把上游最新版和这里 diff，开 Issue；人工审核后改这个文件，
+# 重建镜像 —— 课程内容与沙盒环境同时换版，不存在多版本共存。
+#
+# 改这里 = 改所有人的环境。改完必须重跑 verify（curriculum/validate.py --verify container）。
+
+# 统一模型。选 deepseek-v4-flash 是为了压培训成本 —— 除 codex 外都用它。
+# 改这里 = 改所有人的模型。必须是网关 /v1/models 里存在的别名，
+# microclass-doctor 会实际去核对。
+MODEL=charaboard/deepseek-v4-flash
+
+# codex 的例外。**单版本策略在这里破了一个口子，所以口子写在这里，
+# 而不是藏在渲染脚本里** —— 要知道谁没跟统一模型，看这一个文件就够。
+#
+# 为什么破例：实际使用中 codex 配 deepseek-v4-flash 跑不正常（2026-08-25 反馈）。
+# 换 gpt-5.6-luna 之后可用。工具用不了比省钱重要 —— 但**这一条比统一模型贵**，
+# 而 codex 是四件工具里 token 用量最大的那类（多轮 + 工具调用），
+# 成本会明显上去，值得盯一眼网关的用量。
+#
+# 留空或删掉这一行 = 回落到 MODEL，不会报错。
+# 哪天 deepseek 那边修好了，删掉即可，不用改任何代码。
+CODEX_MODEL=charaboard/gpt-5.6-luna
+
+HERMES_BASE=microclass/hermes-base:v2026.9.7
+CLAUDE_CODE_VERSION=2.1.266
+CODEX_VERSION=0.153.4
+LARK_CLI_VERSION=1.0.94
+TTYD_VERSION=1.7.7
+ASCIINEMA_VERSION=2.4.0
+# glow 渲染速查卡（markdown → 带标题层级/表格线/代码高亮的终端排版）。
+# 发布 tag 带 v 前缀（v3.0.0），这里照单版本策略的写法不存前缀，
+# Dockerfile 拼 URL 时自己加。
+GLOW_VERSION=3.0.0
+PYTEST_VERSION=9.1.1

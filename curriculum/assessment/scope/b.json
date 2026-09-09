@@ -1,0 +1,17 @@
+{
+  "task": "b",
+  "repo": "oncall-digest",
+  "ambiguities": [
+    {
+      "term": "响应时间",
+      "issue_line": "Issue 说「响应时间」，但没说是算到认领还是算到关闭（代码里 ack_latency 和 resolve_latency 两种都存在）",
+      "criterion": "是否识别出「响应时间」算到哪一步不明"
+    },
+    {
+      "term": "值班期间",
+      "issue_line": "Issue 说「值班期间」，但没说是自然日还是值班班次（样例数据里有跨夜告警，两种划法结论不同）",
+      "criterion": "是否识别出「值班期间」的时间边界不明"
+    }
+  ],
+  "overload_line": "Issue 一共要求 3 件事，而时限只够做 1–2 件"
+}

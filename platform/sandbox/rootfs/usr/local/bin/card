@@ -1,0 +1,32 @@
+#!/bin/sh
+# 速查卡。**必须是真脚本，不能是 shell 函数。**
+#
+# 它原来是 /etc/profile.d 里的一个函数，踩过一次：测评模式下 profile.d 最后
+# 会 exec microclass-record，而录屏起的是交互**非登录** shell —— 不读
+# /etc/profile，函数就此消失。学员在录屏里敲 card 得到 command not found，
+# 而 banner 还在告诉他"忘了命令就敲 card"。
+# 函数只活在定义它的那一个 shell 里：录屏进程、子 shell、claude-code 的 Bash
+# 工具里全都没有。做成 /usr/local/bin 下的脚本，这些地方一次全好。
+set -eu
+
+DOC="${MICROCLASS_CHEATSHEET:-/opt/microclass/cheatsheet.md}"
+[ -r "$DOC" ] || { echo "速查卡不见了：$DOC" >&2; exit 1; }
+
+# glow 把源文件里的 markdown 渲成带标题层级、表格边框、代码高亮的排版，
+# 且自动贴合当前终端宽度（实测过：60 列和 140 列宽换行点不一样，不用传 -w）。
+# 直接甩原始 markdown 给 less 会看到裸的 #/|/- —— 这正是排版乱的根源。
+if command -v glow >/dev/null 2>&1; then
+  # 没有 tty 时（管道里、claude -p 里、CI 里）不开 -p：纯渲染完直接退出，
+  # 不等分页器，也不会因为没有 tty 而挂住。
+  if [ -t 1 ]; then
+    exec glow -p "$DOC"
+  fi
+  exec glow "$DOC"
+fi
+
+# glow 万一没装上（比如构建期镜像层裁过），退回旧路径：
+# 原始 markdown 好歹能读，好过直接报错。
+if [ -t 1 ] && command -v less >/dev/null 2>&1; then
+  exec less -R "$DOC"
+fi
+exec cat "$DOC"

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# 一处来源 → 渲染各工具的原生配置。
+#
+# 这就是 cc-switch 干的事，只是做成脚本：cc-switch 是 Tauri 桌面 GUI，
+# 沙盒里没有图形环境；而且它把 key 存在自己的库里由 proxy 注入，
+# 会打掉「每人一把网关 key」——那是计费归属和毕业吊销的根基。
+#
+# 来源是 sandctl 注入的环境变量（它们又来自 versions.lock 和网关签发）：
+#   MICROCLASS_GATEWAY  网关地址
+#   MICROCLASS_MODEL    统一模型
+#   OPENAI_API_KEY      这名学员自己的网关 key
+#
+# 默认**不覆盖**已存在的配置 —— 学员在课程里会亲手改这些文件（切片
+# tool/hermes-profile 等），每次登录都冲掉他们的改动是帮倒忙。要重置用 --force。
+set -uo pipefail
+
+FORCE=0
+[ "${1:-}" = "--force" ] && FORCE=1
+
+GW="${MICROCLASS_GATEWAY:-}"
+MODEL="${MICROCLASS_MODEL:-}"
+if [ -z "$GW" ] || [ -z "$MODEL" ]; then
+  echo "microclass-config: 没有 MICROCLASS_GATEWAY / MICROCLASS_MODEL，跳过" >&2
+  exit 0
+fi
+
+write_if_absent() { # write_if_absent <路径> <描述>
+  local path="$1" what="$2"
+  if [ -e "$path" ] && [ "$FORCE" = 0 ]; then
+    echo "  跳过 $what（已存在，要重置用 microclass-config --force）"
+    return 1
+  fi
+  mkdir -p "$(dirname "$path")"
+  return 0
+}
+
+# ── claude-code ────────────────────────────────────────────────────────
+# 没有文件要渲染：它认 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN /
+# ANTHROPIC_MODEL 三个环境变量，sandctl 已经注入。权限策略在镜像里的
+# /etc/claude-code/managed-settings.json，是企业级配置，学员改不了。
+echo "  claude-code：走环境变量，无配置文件"
+
+# ── codex ──────────────────────────────────────────────────────────────
+# codex 0.137+ 删掉了 wire_api="chat"，只认 Responses API。
+# 网关已经补上 /v1/responses（Responses ↔ Chat 翻译），这份配置是通的。
+# 契约见 llm-gateway/docs/design/responses-api.md。
+# codex 不跟统一模型：deepseek-v4-flash 在它上面跑不正常，换成 versions.lock 里的
+# CODEX_MODEL（那里写了为什么，以及为什么这个口子开在 lock 而不是这里）。
+# 没注入就回落到统一模型 —— 老容器里没有这个环境变量，靠这个兜底不会炸。
+CODEX_MODEL="${MICROCLASS_CODEX_MODEL:-$MODEL}"
+
+if write_if_absent "$HOME/.codex/config.toml" "codex"; then
+  cat > "$HOME/.codex/config.toml" <<EOF
+model = "${CODEX_MODEL}"
+model_provider = "microclass"
+
+# 不在容器里再套一层沙盒。**隔离边界是容器本身，不是工具的内层沙盒**
+# （设计文档 §6）—— 和 claude-code 放行 Bash 是同一个决定、同一个理由：
+# 内层权限闸会在会话记录里留下"被拦下"的痕迹，让"从没验证过"和"验证被拦了"
+# 无法区分，直接毒化证据链。
+#
+# 顺带解掉了那条 bubblewrap 警告。**注意它不是装个包就能修的**：实测在这个
+# 无特权容器里 apt 装的 bwrap 直接报 "No permissions to create new namespace"
+# —— 内核（colima VM）不允许非特权用户命名空间。装上只会把"用内置兜底"
+# 换成"PATH 上有个跑不起来的 bwrap"，比现在更糟。
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+
+[model_providers.microclass]
+name = "AI 微课堂内部网关"
+base_url = "${GW}/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"
+EOF
+  echo "  codex：已写 ~/.codex/config.toml"
+fi
+
+# ── hermes ─────────────────────────────────────────────────────────────
+# hermes 不认 OPENAI_API_KEY 这类通用变量，要自己的 providers 段。
+# key_env 让它去读环境变量，明文 key 不落进 config.yaml。
+if write_if_absent "$HOME/.hermes/config.yaml" "hermes"; then
+  cat > "$HOME/.hermes/config.yaml" <<EOF
+provider: microclass
+model: ${MODEL}
+
+providers:
+  microclass:
+    name: AI 微课堂内部网关
+    base_url: ${GW}/v1
+    key_env: OPENAI_API_KEY
+    api_mode: chat
+    models:
+      - ${MODEL}
+EOF
+  echo "  hermes：已写 ~/.hermes/config.yaml"
+fi

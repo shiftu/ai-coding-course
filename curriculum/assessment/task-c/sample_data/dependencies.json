@@ -1,0 +1,110 @@
+[
+  {
+    "name": "requests",
+    "version": "2.32.3",
+    "license": "Apache-2.0",
+    "direct": true
+  },
+  {
+    "name": "urllib3",
+    "version": "2.2.3",
+    "license": "MIT",
+    "direct": false
+  },
+  {
+    "name": "certifi",
+    "version": "2024.8.30",
+    "license": "MPL-2.0",
+    "direct": false
+  },
+  {
+    "name": "idna",
+    "version": "3.10",
+    "license": "BSD-3-Clause",
+    "direct": false
+  },
+  {
+    "name": "charset-normalizer",
+    "version": "3.4.0",
+    "license": "MIT",
+    "direct": false
+  },
+  {
+    "name": "click",
+    "version": "8.1.7",
+    "license": "BSD-3-Clause",
+    "direct": true
+  },
+  {
+    "name": "jinja2",
+    "version": "3.1.4",
+    "license": "BSD-3-Clause",
+    "direct": true
+  },
+  {
+    "name": "markupsafe",
+    "version": "3.0.2",
+    "license": "BSD-3-Clause",
+    "direct": false
+  },
+  {
+    "name": "pyyaml",
+    "version": "6.0.2",
+    "license": "MIT",
+    "direct": true
+  },
+  {
+    "name": "sqlalchemy",
+    "version": "2.0.36",
+    "license": "MIT",
+    "direct": true
+  },
+  {
+    "name": "packaging",
+    "version": "24.2",
+    "license": "Apache-2.0",
+    "direct": false
+  },
+  {
+    "name": "psycopg2-binary",
+    "version": "2.9.10",
+    "license": "LGPL-3.0",
+    "direct": true
+  },
+  {
+    "name": "chardet",
+    "version": "5.2.0",
+    "license": "LGPL-3.0",
+    "direct": false
+  },
+  {
+    "name": "mysql-connector-python",
+    "version": "9.1.0",
+    "license": "GPL-3.0",
+    "direct": true
+  },
+  {
+    "name": "pdftotext-bin",
+    "version": "2.2.0",
+    "license": "GPL-3.0",
+    "direct": false
+  },
+  {
+    "name": "ghostscript-py",
+    "version": "0.7",
+    "license": "AGPL-3.0",
+    "direct": false
+  },
+  {
+    "name": "minio-console-sdk",
+    "version": "1.4.0",
+    "license": "AGPL-3.0",
+    "direct": true
+  },
+  {
+    "name": "fontforge-bindings",
+    "version": "0.3.1",
+    "license": "BeiTech-Commercial-1.1",
+    "direct": true
+  }
+]

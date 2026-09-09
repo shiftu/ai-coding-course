@@ -1,0 +1,17 @@
+{
+  "task": "a",
+  "repo": "weekly-report",
+  "ambiguities": [
+    {
+      "term": "最近一周",
+      "issue_line": "Issue 说「统计最近一周的消息」，但没说是自然周还是滚动 7 天",
+      "criterion": "是否识别出「最近一周」定义不明"
+    },
+    {
+      "term": "活跃贡献者",
+      "issue_line": "Issue 说「活跃贡献者」，但没说按消息条数还是按字数（代码里两种统计都存在）",
+      "criterion": "是否识别出「活跃贡献者」口径不明"
+    }
+  ],
+  "overload_line": "Issue 一共要求 3 件事，而时限只够做 1–2 件"
+}

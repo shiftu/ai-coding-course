@@ -1,0 +1,211 @@
+[
+  {
+    "id": "AL-20260817-01",
+    "service": "payment-api",
+    "severity": "P1",
+    "assignee": "zhangwei",
+    "team": "交易组",
+    "summary": "支付回调队列积压超过 5000",
+    "fired_at": "2026-08-17T01:12:00",
+    "acked_at": "2026-08-17T01:19:00",
+    "resolved_at": "2026-08-17T02:05:00"
+  },
+  {
+    "id": "AL-20260817-02",
+    "service": "payment-api",
+    "severity": "P1",
+    "assignee": "zhangwei",
+    "team": "交易组",
+    "summary": "支付网关 5xx 比例 12%",
+    "fired_at": "2026-08-17T02:03:00",
+    "acked_at": "2026-08-17T02:06:00",
+    "resolved_at": "2026-08-17T02:41:00"
+  },
+  {
+    "id": "AL-20260817-03",
+    "service": "order-service",
+    "severity": "P2",
+    "assignee": "zhangwei",
+    "team": "交易组",
+    "summary": "下单接口 P99 超过 3s",
+    "fired_at": "2026-08-17T02:27:00",
+    "acked_at": "2026-08-17T02:44:00",
+    "resolved_at": "2026-08-17T03:30:00"
+  },
+  {
+    "id": "AL-20260817-04",
+    "service": "push-gateway",
+    "severity": "P3",
+    "assignee": "liyang",
+    "team": "基础架构组",
+    "summary": "推送投递成功率跌到 91%",
+    "fired_at": "2026-08-17T09:15:00",
+    "acked_at": "2026-08-17T09:31:00",
+    "resolved_at": "2026-08-17T10:02:00"
+  },
+  {
+    "id": "AL-20260817-05",
+    "service": "user-profile",
+    "severity": "P2",
+    "assignee": "liyang",
+    "team": "基础架构组",
+    "summary": "头像 CDN 回源超时",
+    "fired_at": "2026-08-17T10:05:00",
+    "acked_at": "2026-08-17T10:09:00",
+    "resolved_at": "2026-08-17T10:55:00"
+  },
+  {
+    "id": "AL-20260817-06",
+    "service": "billing-job",
+    "severity": "P3",
+    "assignee": "chenhao",
+    "team": "交易组",
+    "summary": "对账任务超时未完成",
+    "fired_at": "2026-08-17T14:22:00",
+    "acked_at": "2026-08-17T14:50:00",
+    "resolved_at": "2026-08-17T16:10:00"
+  },
+  {
+    "id": "AL-20260817-07",
+    "service": "payment-api",
+    "severity": "P2",
+    "assignee": "sunqi",
+    "team": "交易组",
+    "summary": "退款接口错误率上升",
+    "fired_at": "2026-08-17T21:40:00",
+    "acked_at": "2026-08-17T21:44:00",
+    "resolved_at": "2026-08-17T22:30:00"
+  },
+  {
+    "id": "AL-20260818-01",
+    "service": "order-service",
+    "severity": "P1",
+    "assignee": "sunqi",
+    "team": "交易组",
+    "summary": "订单库主从延迟 40s",
+    "fired_at": "2026-08-18T02:18:00",
+    "acked_at": "2026-08-18T02:21:00",
+    "resolved_at": "2026-08-18T03:05:00"
+  },
+  {
+    "id": "AL-20260818-02",
+    "service": "billing-job",
+    "severity": "P2",
+    "assignee": "sunqi",
+    "team": "交易组",
+    "summary": "日终结算任务重试 3 次",
+    "fired_at": "2026-08-18T03:06:00",
+    "acked_at": "2026-08-18T03:25:00",
+    "resolved_at": "2026-08-18T04:10:00"
+  },
+  {
+    "id": "AL-20260818-03",
+    "service": "auth-service",
+    "severity": "P2",
+    "assignee": "wangqi",
+    "team": "基础架构组",
+    "summary": "登录 token 校验超时",
+    "fired_at": "2026-08-18T10:31:00",
+    "acked_at": "2026-08-18T10:35:00",
+    "resolved_at": "2026-08-18T11:20:00"
+  },
+  {
+    "id": "AL-20260818-04",
+    "service": "user-profile",
+    "severity": "P3",
+    "assignee": "wangqi",
+    "team": "基础架构组",
+    "summary": "资料写入接口偶发 500",
+    "fired_at": "2026-08-18T14:09:00",
+    "acked_at": "2026-08-18T14:40:00",
+    "resolved_at": "2026-08-18T15:55:00"
+  },
+  {
+    "id": "AL-20260818-05",
+    "service": "payment-api",
+    "severity": "P2",
+    "assignee": "chenhao",
+    "team": "交易组",
+    "summary": "渠道方限流触发",
+    "fired_at": "2026-08-18T16:47:00",
+    "acked_at": "2026-08-18T16:52:00",
+    "resolved_at": "2026-08-18T17:36:00"
+  },
+  {
+    "id": "AL-20260818-06",
+    "service": "push-gateway",
+    "severity": "P1",
+    "assignee": "liyang",
+    "team": "基础架构组",
+    "summary": "长连接集群掉线 30%",
+    "fired_at": "2026-08-18T23:58:00",
+    "acked_at": "2026-08-19T00:04:00",
+    "resolved_at": "2026-08-19T00:52:00"
+  },
+  {
+    "id": "AL-20260819-01",
+    "service": "payment-api",
+    "severity": "P1",
+    "assignee": "zhangwei",
+    "team": "交易组",
+    "summary": "支付回调队列再次积压",
+    "fired_at": "2026-08-19T02:41:00",
+    "acked_at": "2026-08-19T02:47:00",
+    "resolved_at": "2026-08-19T03:39:00"
+  },
+  {
+    "id": "AL-20260819-02",
+    "service": "order-service",
+    "severity": "P2",
+    "assignee": "zhangwei",
+    "team": "交易组",
+    "summary": "订单状态机卡在待支付",
+    "fired_at": "2026-08-19T03:22:00",
+    "acked_at": "2026-08-19T03:30:00",
+    "resolved_at": "2026-08-19T04:15:00"
+  },
+  {
+    "id": "AL-20260819-03",
+    "service": "auth-service",
+    "severity": "P3",
+    "assignee": "liyang",
+    "team": "基础架构组",
+    "summary": "验证码下发延迟",
+    "fired_at": "2026-08-19T10:12:00",
+    "acked_at": "2026-08-19T10:44:00",
+    "resolved_at": "2026-08-19T11:30:00"
+  },
+  {
+    "id": "AL-20260819-04",
+    "service": "billing-job",
+    "severity": "P2",
+    "assignee": "chenhao",
+    "team": "交易组",
+    "summary": "商户账单生成失败 2 户",
+    "fired_at": "2026-08-19T14:35:00",
+    "acked_at": "2026-08-19T14:38:00",
+    "resolved_at": "2026-08-19T15:20:00"
+  },
+  {
+    "id": "AL-20260819-05",
+    "service": "user-profile",
+    "severity": "P2",
+    "assignee": "wangqi",
+    "team": "基础架构组",
+    "summary": "资料读接口缓存击穿",
+    "fired_at": "2026-08-19T21:03:00",
+    "acked_at": "2026-08-19T21:10:00",
+    "resolved_at": "2026-08-19T22:00:00"
+  },
+  {
+    "id": "AL-20260819-06",
+    "service": "billing-job",
+    "severity": "P3",
+    "assignee": "chenhao",
+    "team": "交易组",
+    "summary": "对账差异待人工核对",
+    "fired_at": "2026-08-19T21:47:00",
+    "acked_at": "2026-08-19T21:52:00",
+    "resolved_at": null
+  }
+]

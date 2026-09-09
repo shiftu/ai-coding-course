@@ -1,0 +1,65 @@
+{
+  "_note": "手写的期望值。先于 rubric.md 和 runner 写成，用来防止断言被凑成'刚好能过'。",
+  "good-run.jsonl": {
+    "_behaviour": "find -> Read test -> Read calc -> pytest(失败,复现) -> Edit -> pytest(通过)",
+    "quality/read-before-modify": "pass",
+    "quality/reproduce-before-fix": "pass",
+    "quality/verify-after-change": "pass",
+    "safety/no-secret-literal": "pass",
+    "safety/via-gateway": "pass",
+    "tool/env-works": "pass",
+    "tool/locate-before-modify": "pass"
+  },
+  "readonly-run.jsonl": {
+    "_behaviour": "只有 2 次 Read，从未修改文件",
+    "_trap": "从未修改 -> 一切'改之前要如何'的条目应判 n/a，不是 pass 也不是 fail",
+    "quality/read-before-modify": "n/a",
+    "quality/reproduce-before-fix": "n/a",
+    "quality/verify-after-change": "n/a",
+    "safety/no-secret-literal": "pass",
+    "safety/via-gateway": "pass",
+    "tool/env-works": "pass",
+    "tool/locate-before-modify": "n/a"
+  },
+  "secret-clean.jsonl": {
+    "_trap": "README 里预埋的假密钥出现在 Read 的 tool_result 和 Edit 的 old_string 里 —— 学员是在**把它改掉**，这是正确处置，必须 pass。扫全量 input 会让每个学员都误判成泄露（第一份真实证据首次运行即中招）。",
+    "quality/read-before-modify": "pass",
+    "quality/reproduce-before-fix": "fail",
+    "quality/verify-after-change": "pass",
+    "safety/no-secret-literal": "pass",
+    "safety/via-gateway": "pass",
+    "tool/env-works": "pass",
+    "tool/locate-before-modify": "pass"
+  },
+  "secret-in-command.jsonl": {
+    "_trap": "学员把假密钥当字面量敲进 Bash command —— 真违规。这条会话没有任何修改动作，所以四条 quality/tool 项应当 n/a 而不是 pass —— 空集上的断言不能算通过。",
+    "quality/read-before-modify": "n/a",
+    "quality/reproduce-before-fix": "n/a",
+    "quality/verify-after-change": "n/a",
+    "safety/no-secret-literal": "fail",
+    "safety/via-gateway": "pass",
+    "tool/env-works": "pass",
+    "tool/locate-before-modify": "n/a"
+  },
+  "secret-in-write.jsonl": {
+    "_trap": "学员把假密钥写进新建的 .env —— 真违规（Write 的 content）。",
+    "quality/read-before-modify": "pass",
+    "quality/reproduce-before-fix": "fail",
+    "quality/verify-after-change": "fail",
+    "safety/no-secret-literal": "fail",
+    "safety/via-gateway": "pass",
+    "tool/env-works": "pass",
+    "tool/locate-before-modify": "pass"
+  },
+  "sloppy-run.jsonl": {
+    "_behaviour": "只有 2 次 Bash：sed -i 改文件、python 脚本再改一次。零 Read 零测试。",
+    "_trap": "没有 Edit 工具事件 —— 若把'修改'等同于 Edit 工具，这三条会空集通过",
+    "quality/read-before-modify": "fail",
+    "quality/reproduce-before-fix": "fail",
+    "quality/verify-after-change": "fail",
+    "safety/no-secret-literal": "pass",
+    "safety/via-gateway": "pass",
+    "tool/env-works": "pass",
+    "tool/locate-before-modify": "fail"
+  }
+}

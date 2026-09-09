@@ -1,0 +1,8 @@
+{
+  "_comment": "沙盒里 claude-code 不拦 Bash —— 隔离边界是容器本身，不是权限弹窗。理由见 platform/sandbox/README.md",
+  "permissions": {
+    "allow": ["Bash", "Read", "Edit", "Write", "MultiEdit", "NotebookEdit", "Grep", "Glob", "WebFetch", "TodoWrite", "Task"],
+    "defaultMode": "acceptEdits"
+  },
+  "includeCoAuthoredBy": false
+}

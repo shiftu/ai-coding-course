@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# 运行期体检：**每件工具真的发一次请求**，不是查 --version。
+#
+# 为什么要有这个：microclass-selfcheck 只断言版本号，构建期跑，那时候没有网关
+# 也没有学员 key，测不了「能不能用」。结果是 codex 和 hermes 两件工具坏着，
+# 自检却一路绿灯，一直发到学员手里才被发现。
+# **装上了 ≠ 跑得通。**
+#
+#   bash -lc microclass-doctor        # 交付前，sandctl create 会自动跑
+#
+# 退出码：有必修项失败 → 1；只有已知待修项失败 → 0（但会明确打出来）。
+set -uo pipefail
+
+TIMEOUT="${MICROCLASS_DOCTOR_TIMEOUT:-120}"
+fail=0
+known=0
+
+ok()    { printf '  ok        %s\n' "$1"; }
+bad()   { printf '  FAIL      %s\n      %s\n' "$1" "$2"; fail=1; }
+issue() { printf '  已知待修  %s\n      %s\n' "$1" "$2"; known=1; }
+
+echo "运行期体检（每件工具真的发一次请求）"
+
+# ── 0. 网关本身 ────────────────────────────────────────────────────────
+if [ -z "${MICROCLASS_GATEWAY:-}" ] || [ -z "${OPENAI_API_KEY:-}" ]; then
+  bad "网关环境变量" "MICROCLASS_GATEWAY 或 OPENAI_API_KEY 没注入"
+else
+  models=$(curl -s -m 15 -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+             "${MICROCLASS_GATEWAY}/v1/models" 2>&1)
+  if printf '%s' "$models" | grep -q '"id"'; then
+    # codex 用的是另一个模型（versions.lock 的 CODEX_MODEL），也要核对 ——
+    # 只查统一模型的话，codex 那个别名写错了会一路绿灯发到学员手里。
+    #
+    # **从 config.toml 读，不从环境变量读**：环境变量是我们打算给的，
+    # config.toml 是 codex 实际会用的。两者能不一致 —— 老容器起容器时还没有
+    # MICROCLASS_CODEX_MODEL 这个变量（热补只改得了文件），学员也可能自己改过。
+    # 体检要测的是后者。
+    cx=$(sed -n 's/^model *= *"\(.*\)"/\1/p' "$HOME/.codex/config.toml" 2>/dev/null | head -1)
+    [ -n "$cx" ] || cx="${MICROCLASS_CODEX_MODEL:-}"
+
+    want=("${MICROCLASS_MODEL:-}")
+    [ -n "$cx" ] && [ "$cx" != "${MICROCLASS_MODEL:-}" ] && want+=("$cx")
+    missing=""
+    for m in "${want[@]}"; do
+      [ -n "$m" ] || continue
+      printf '%s' "$models" | grep -q "\"${m}\"" || missing="${missing}${missing:+、}${m}"
+    done
+    if [ -n "$missing" ]; then
+      bad "网关模型清单" "网关里没有 ${missing} —— 模型名和网关别名对不上"
+    else
+      ok "网关可达，且 ${want[*]} 都在清单里"
+    fi
+  else
+    bad "网关可达性" "$(printf '%s' "$models" | head -c 200)"
+  fi
+fi
+
+# ── 1. claude-code ─────────────────────────────────────────────────────
+out=$(timeout "$TIMEOUT" claude -p "Reply with exactly: PONG" \
+        --output-format json 2>&1 | tail -1)
+if printf '%s' "$out" | grep -q '"is_error":false'; then
+  ok "claude-code 真的跑通了一次请求"
+else
+  bad "claude-code" "$(printf '%s' "$out" | tr '\n' ' ' | head -c 240)"
+fi
+
+# ── 2. hermes ──────────────────────────────────────────────────────────
+# HERMES_DOCKER_EXEC_AS_ROOT=1 由 sandctl 注入：/opt/hermes/bin/hermes 是个
+# 降权 shim，会切到 uid 10000，而 $HOME 在持久卷上是 root:root 755，
+# 于是它连自己的 HERMES_HOME 都建不出来。那个 shim 是给 s6 监管的 gateway
+# 进程对齐 uid 用的，我们的容器 PID 1 是 ttyd，压根没有那个进程。
+out=$(timeout "$TIMEOUT" hermes -z "Reply with exactly: PONG" 2>&1 \
+        | grep -viE 'syntaxwarning|venv.Scripts' | tail -3)
+if printf '%s' "$out" | grep -qi 'PONG'; then
+  ok "hermes 真的跑通了一次请求"
+elif printf '%s' "$out" | grep -q 'Permission denied'; then
+  bad "hermes" "建不了 HERMES_HOME —— 检查 HERMES_DOCKER_EXEC_AS_ROOT 是否注入。$(printf '%s' "$out" | tr '\n' ' ' | head -c 160)"
+else
+  bad "hermes" "$(printf '%s' "$out" | tr '\n' ' ' | head -c 240)"
+fi
+
+# ── 3. codex ───────────────────────────────────────────────────────────
+# 故意**不传 -s**：体检要测的是学员实际拿到的那份配置。microclass-config 写的是
+# sandbox_mode = "danger-full-access"（隔离边界是容器，见那里的说明），
+# 命令行 -s 会把它顶掉，等于在测一份没人用的配置。
+#
+# 输出里那句 `Model metadata for … not found` 是**已知且无解的噪声**，不是故障：
+# codex 的模型元数据表编译在二进制里，认不出网关上的别名就退回保守默认值。
+# 试过 model_context_window、model_max_output_tokens、model_catalog_json，
+# 三条都压不住它（0.148.0 实测）。请求本身照常通 —— 所以这里只认 PONG。
+out=$(timeout "$TIMEOUT" codex exec --skip-git-repo-check \
+        "Reply with exactly: PONG" 2>&1 | tail -4)
+if printf '%s' "$out" | grep -qi 'PONG'; then
+  ok "codex 真的跑通了一次请求"
+else
+  bad "codex" "codex 只认 Responses API（0.137+ 删掉了 wire_api=\"chat\"）。
+      网关的 /v1/responses 曾经缺失，现已补上 —— 所以这里报错不再是"已知待修"，
+      是真出问题了。先直接打网关看它还在不在：
+        curl -s -o /dev/null -w '%{http_code}\\n' -X POST \$MICROCLASS_GATEWAY/v1/responses \\
+          -H \"Authorization: Bearer \$OPENAI_API_KEY\" -H 'Content-Type: application/json' \\
+          -d '{\"model\":\"'\$MICROCLASS_MODEL'\",\"input\":[],\"stream\":true}'
+      契约见 llm-gateway/docs/design/responses-api.md。
+      实际报错：$(printf '%s' "$out" | tr '\n' ' ' | head -c 160)"
+fi
+
+# ── 4. lark-cli ────────────────────────────────────────────────────────
+# 它不走模型网关，走飞书开放平台。没有飞书凭证时只能验到「命令能跑」，
+# 到不了「能建文档」—— 这一点必须说清楚，不能拿它冒充端到端通过。
+if timeout 30 lark-cli --version >/dev/null 2>&1; then
+  ok "lark-cli 可执行（未验飞书凭证 —— 需要真实 app 才测得到）"
+else
+  bad "lark-cli" "连 --version 都跑不起来"
+fi
+
+# ── 5. 学员实际拿到的东西 ───────────────────────────────────────────
+# 前面四项查的是**工具**。工具全绿而学员少东西，这事已经发生过一次：
+# card 和 /workspace/task-a 双双缺失，体检却一路通过。交付物本身也要查。
+
+# card：必须是 PATH 上的可执行文件，不能是 shell 函数。
+# 这里**故意用不读 profile 的裸 bash -c** —— 它就是当年出事的那种 shell
+# （录屏起的是 $SHELL -i，非登录，函数在那里不存在）。
+# 不用 head -1：card 现在优先走 glow 渲染，非 tty 输出第一行是缩进产生的空行，
+# 标题另起一行——掐 head -1 会把这条检查带假红。整段输出里找得到字样即可。
+if bash -c 'card' 2>/dev/null | grep -q '速查卡'; then
+  ok "card 在不读 profile 的 shell 里也能用"
+else
+  bad "card" "裸 bash -c 里跑不出速查卡 —— 它是不是又变回 shell 函数了？
+      函数只活在定义它的那个 shell 里，录屏/子 shell/claude 的 Bash 工具里全都没有。"
+fi
+
+# 测评任务：测评号必须带着题交付，且要有基线提交（证据源 ② 靠和它 diff）。
+if [ "${MICROCLASS_MODE:-}" = "assessment" ]; then
+  tdir="/workspace/task-$(printf '%s' "${MICROCLASS_TRACK:-a}" | tr 'A-Z' 'a-z')"
+  if [ ! -d "$tdir" ]; then
+    # 容器里看不见宿主机的课程目录，分不清"题写了但没投"和"这一轨还没有题"。
+    # 两种都说，别让运维照着一条跑不通的建议试半天。
+    bad "测评任务" "$tdir 不存在 —— 学员登进来看不到题。
+      题已存在 → sandctl seed <学员>；这一轨还没出题 → 先写 curriculum/assessment/$(basename "$tdir")"
+  elif ! git -C "$tdir" rev-parse HEAD >/dev/null 2>&1; then
+    bad "测评任务" "$tdir 在，但没有基线提交 —— 证据源 ② 会整条哑掉。sandctl seed <学员> --force"
+  elif ! ls "$tdir"/ISSUE*.md >/dev/null 2>&1; then
+    # 仓库在、题面不在 —— 学员打开只有一个陌生代码库，不知道要干什么。
+    # 投放代码里 Issue 文件名曾经写死成 ISSUE-7.md 且找不到就静默跳过，
+    # 轨道 B 的号会一路绿灯地发出去，而任务本身是丢的。
+    bad "测评任务" "$tdir 里没有 Issue 正文（ISSUE*.md）—— 学员不知道要做什么。
+      重投：sandctl seed <学员> --force"
+  else
+    ok "测评任务 $tdir 就位（基线 $(git -C "$tdir" rev-parse --short HEAD)，题面 $(cd "$tdir" && ls ISSUE*.md | head -1)）"
+  fi
+fi
+
+echo
+if [ "$fail" != 0 ]; then
+  echo "体检不通过：有必修项失败，别把这个容器交给学员。"
+  exit 1
+fi
+if [ "$known" != 0 ]; then
+  echo "体检通过（有已知待修项，见上）。"
+  exit 0
+fi
+echo "体检全通过。"

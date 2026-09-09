@@ -1,0 +1,468 @@
+#!/usr/bin/env python3
+"""sandctl —— 学员沙盒生命周期。
+
+    sandctl create  <学员> [--mode assessment|course] [--track A|B|C]
+    sandctl list
+    sandctl info    <学员>
+    sandctl url     <学员>
+    sandctl start   <学员>
+    sandctl stop    <学员>
+    sandctl selfcheck <学员>
+    sandctl bind    <学员> --lark-open-id <id>   # 绑飞书身份，web 前端靠它认人
+    sandctl module  <学员> <模块id> --state exempt|pass|reset
+    sandctl module-evidence <学员> [模块id] [--limit N]   # 验收前先看有没有线索
+    sandctl graduate  <学员>          # §8 隐私开关：吊销 key，采集立即停止
+    sandctl seed      <学员> [--force]
+    sandctl image-audit [--fix]        # 核对档案里的镜像身份 vs 容器实际在跑的
+    sandctl grade-all [--stop-first]
+    sandctl destroy   <学员> [--keep-volume]
+
+状态在 ~/.local/state/microclass/（可用 MICROCLASS_STATE 改）。
+"""
+import argparse
+import os
+import pathlib
+import subprocess
+import sys
+
+import gateway
+import harvest
+import module_evidence
+import sandbox
+import store
+
+_GRADE_PY = pathlib.Path(__file__).resolve().parents[2] / "curriculum" / "rubric" / "grade.py"
+
+MODES = ("assessment", "course")
+TRACKS = ("A", "B", "C")
+
+
+def _die(msg, code=1):
+    print(f"错误：{msg}", file=sys.stderr)
+    raise SystemExit(code)
+
+
+# 镜像身份的三个字段。tag 只是名字，image_id 才是身份，stamp 是可读的对照。
+# 为什么不能只记 tag，见 sandbox.image_identity 的注释。
+_IMAGE_FIELDS = ("image", "image_id", "image_stamp")
+
+
+def cmd_create(a):
+    student = store.check_id(a.student)
+    if store.exists(student):
+        _die(f"学员 {student} 已存在。看：sandctl info {student}")
+    if not gateway.healthy():
+        _die("网关不健康，先修网关 —— 没有网关学员什么都跑不了")
+    # 测评号必须有题。**在动任何资源之前查** —— 先建容器、发 key、存档案，
+    # 再发现没题可投，留下的是一个半成品学员 + 一把活着的网关 key，
+    # 得人工清理。实测踩过：轨道 B/C 的题还没写，stu-c/stu-d 就是这么卡住的。
+    if a.mode == "assessment":
+        try:
+            sandbox.check_task_ready(a.track)
+        except sandbox.SandboxError as e:
+            _die(f"{e}\n     现有的题：{[p.name for p in sorted(sandbox._CURRICULUM.glob('task-*'))]}")
+
+    gateway.ensure_team()
+    used = {s.get("ttyd_port") for s in store.all_students()}
+    port = sandbox.pick_port(used)
+    password = sandbox.new_password()
+
+    key_id, token = gateway.issue_student_key(student)
+    store.put_key(student, token)          # 明文只落这一处，0600
+
+    try:
+        sandbox.create(student, mode=a.mode, track=a.track, api_key=token,
+                       port=port, ttyd_user=student, ttyd_pass=password)
+    except Exception:
+        gateway.revoke_key(key_id)          # 容器没起来就别留着一把活 key
+        store.drop_key(student)
+        raise
+
+    rec = store.save({
+        "student": student,
+        "created_at": store.now(),
+        "mode": a.mode,
+        "track": a.track,
+        **{k: v for k, v in sandbox.image_identity().items() if k in _IMAGE_FIELDS},
+        "container": sandbox.container_name(student),
+        "volume": sandbox.volume_name(student),
+        "evidence_dir": store.evidence_dir(student),
+        "ttyd_port": port,
+        # ttyd 的挂载前缀。web 反代靠它判断这个容器还能不能代 ——
+        # 改过 sandbox.TTYD_BASE_PATH 之后，老容器仍挂在老前缀上，代过去只会 404。
+        # 记进档案，前端就能说「这个容器要重建」，而不是给学员一个白屏。
+        "ttyd_base_path": sandbox.TTYD_BASE_PATH,
+        "ttyd_user": student,
+        "ttyd_password": password,
+        "gateway_key_id": key_id,
+        "collecting": True,
+        "graduated_at": None,
+    })
+
+    # 测评号必须带着题交付。这一步以前只存在于仿真器 simulate.py 里，
+    # 交付路径上是空的 —— 学员登进去 /workspace 什么都没有。
+    # 放在体检之前，好让体检去核实它真的在（见 microclass-doctor）。
+    #
+    # 用 ensure_task 而不是 seed_task：换镜像走的是 destroy --keep-volume + create，
+    # 那时卷里的题连同学员写的东西都还在，seed_task 会撞上自己的防覆盖守卫报错退出，
+    # 把这条命令停在 selfcheck 之前 —— 容器、档案、新 key 全都有了，却没验收过。
+    if a.mode == "assessment":
+        dst, head, seeded = sandbox.ensure_task(student, a.track)
+        if seeded:
+            print(f"  测评任务已就位：{dst}（基线提交 {head}）")
+        else:
+            print(f"  沿用卷里已有的测评任务：{dst}（基线提交 {head}，未重投）")
+
+    rc, out = sandbox.selfcheck(student)
+    print(out.rstrip())
+    if rc != 0:
+        _die(f"容器起来了但自检没过 —— 别把它交给学员。查：docker logs {rec['container']}")
+
+    # 自检只断言版本号。**装上了 ≠ 跑得通** —— codex 和 hermes 曾经坏着而自检全绿，
+    # 一路发到学员手里。所以交付前再跑一次真体检：每件工具实际发一次请求。
+    print()
+    drc, dout = sandbox.doctor(student)
+    print(dout.rstrip())
+    if drc != 0:
+        _die(f"体检不通过 —— 别把它交给学员。修好后：sandctl doctor {student}")
+    print()
+    _print_url(rec)
+    return rec
+
+
+def _print_url(rec):
+    # 带上 base-path：ttyd 现在挂在 /t 下，根路径是 404（见 sandbox.TTYD_BASE_PATH）
+    print(f"  终端  http://127.0.0.1:{rec['ttyd_port']}{sandbox.TTYD_BASE_PATH}/")
+    print(f"  账号  {rec['ttyd_user']}")
+    print(f"  口令  {rec['ttyd_password']}")
+    print("  （只监听回环。对外由 web 前端反代，别把它绑到 0.0.0.0）")
+
+
+def cmd_url(a):
+    _print_url(store.load(a.student))
+
+
+def cmd_list(a):
+    rows = store.all_students()
+    if not rows:
+        print("还没有学员")
+        return
+    print(f"{'学员':<16}{'模式':<12}{'轨道':<6}{'容器':<10}{'端口':<7}{'采集':<6}")
+    for r in rows:
+        print(f"{r['student']:<16}{r['mode']:<12}{str(r.get('track') or '-'):<6}"
+              f"{sandbox.container_state(r['student']):<10}{r['ttyd_port']:<7}"
+              f"{'是' if r.get('collecting') else '否':<6}")
+
+
+def cmd_info(a):
+    rec = store.load(a.student)
+    rec = {**rec, "ttyd_password": "<见 sandctl url>"}
+    rec["容器状态"] = sandbox.container_state(a.student)
+    rec["网关 key 有效"] = gateway.key_active(rec["gateway_key_id"])
+    for k, v in rec.items():
+        print(f"  {k:<18} {v}")
+
+
+def cmd_start(a):
+    sandbox.start(a.student)
+    print(f"{a.student} 起来了")
+
+
+def cmd_stop(a):
+    sandbox.stop(a.student)
+    print(f"{a.student} 停了（卷和证据都还在）")
+
+
+def cmd_selfcheck(a):
+    rc, out = sandbox.selfcheck(a.student)
+    print(out.rstrip())
+    raise SystemExit(rc)
+
+
+def cmd_doctor(a):
+    rc, out = sandbox.doctor(a.student)
+    print(out.rstrip())
+    raise SystemExit(rc)
+
+
+def cmd_graduate(a):
+    """设计文档 §8 的硬边界：毕业即零采集。
+
+    顺序是有讲究的，不能调换 —— **先停容器，再吊销 key**：
+
+    网关的鉴权走一层 60 秒 TTL 的内存缓存（internal/auth/cache.go）。
+    命中缓存时它直接跳过 DB 查询，而 revoked_at 只有 DB 那条路径会看。
+    更糟的是每次鉴权成功都会 Put 一次、把 expiresAt 重新推后 60 秒 ——
+    所以一把**持续在用**的 key 被吊销后可以无限期继续生效。
+    实测：吊销后 DB 里 revoked_at 已写入，同一把 key 仍然 HTTP 200。
+
+    先停容器就切断了唯一还在用这把 key 的东西，缓存条目不再被续期，
+    最多 60 秒后自然过期，此后 DB 层的 revoked_at 生效，采集真正归零。
+    （反过来先吊销再停，中间那段时间学员容器还在正常调用。）
+    """
+    rec = store.load(a.student)
+    if not rec.get("collecting"):
+        print(f"{a.student} 已经毕业了（{rec.get('graduated_at')}），没有重复动作")
+        return
+
+    sandbox.stop(a.student)                     # ① 先断流量
+    gateway.revoke_key(rec["gateway_key_id"])   # ② 再吊销
+
+    k = gateway.key_record(rec["gateway_key_id"])
+    if gateway.key_active(rec["gateway_key_id"]):
+        _die(f"吊销后网关账面上这把 key 仍然有效（{k}）—— 采集没有真正停止，人工介入")
+
+    store.drop_key(a.student)
+    store.update(a.student, collecting=False, graduated_at=store.now())
+    print(f"{a.student} 已毕业：")
+    print("  容器已停（先停再吊销 —— 顺序见 cmd_graduate 注释）")
+    print(f"  网关 key {rec['gateway_key_id']} 已吊销，revoked_at={k.get('revoked_at')}")
+    print(f"  网关鉴权缓存最多再 {gateway.AUTH_CACHE_TTL} 秒过期，此后这把 key 彻底失效")
+    print("  本地明文 key 已删除")
+    print(f"  作品卷 {rec['volume']} 与既有证据 {rec['evidence_dir']} 保留 —— "
+          "它们是学员本人的证据页素材，仅本人可见")
+
+
+def cmd_bind(a):
+    """把飞书 open_id 绑到学员档案上。
+
+    web 前端**只认这一处映射**：SSO 成功后拿 open_id 反查档案，查不到就让人来
+    找管理员。故意不做自助开通 —— 否则任何能走完 SSO 的人都能建容器。
+    """
+    oid = a.lark_open_id.strip()
+    if not oid:
+        _die("open_id 是空的")
+    for other in store.all_students():
+        if other.get("lark_open_id") == oid and other["student"] != a.student:
+            _die(f"这个 open_id 已经绑在 {other['student']} 上了。"
+                 f"一个飞书账号只能对一名学员 —— 先解绑那边")
+    store.update(a.student, lark_open_id=oid)
+    print(f"{a.student} 已绑定飞书 open_id")
+
+
+def cmd_module(a):
+    """记一个模块的通过状态。这是「我的轨道」页面上进度的**唯一**来源。
+
+    没有记录 = 未开始。前端不从容器活动、证据或任何别的地方推断进度 ——
+    推断出来的进度会让人以为自己学过了。
+    """
+    rec = store.load(a.student)
+    trk = a.module_id
+    mods = dict(rec.get("modules") or {})
+    if a.state == "reset":
+        mods.pop(trk, None)
+        print(f"{a.student} 的 {trk} 记录已清除（回到未开始）")
+    else:
+        mods[trk] = {"state": a.state, "at": store.now(), "by": a.by}
+        print(f"{a.student} 的 {trk} 记为 {a.state}")
+    store.update(a.student, modules=mods)
+
+
+def cmd_module_evidence(a):
+    """验收一个模块之前，把证据里和它沾边的片段捞出来给人看。
+
+    它**不写档案、不判定** —— 判定仍是人对着 exempt_test 做的事，做完用 `module` 记。
+    不给模块 id 就出整条轨道的命中数总览，先看哪些模块值得细看。
+    """
+    rec = store.load(a.student)
+    if a.module_id:
+        mod = module_evidence.module_of(rec, a.module_id)
+        sources = module_evidence.gather(a.student)
+        print(module_evidence.render_module(a.student, mod, sources, limit=a.limit))
+    else:
+        mods = module_evidence.track_modules(rec.get("track") or "")
+        sources = module_evidence.gather(a.student)
+        print(module_evidence.render_overview(a.student, mods, sources))
+
+
+def cmd_seed(a):
+    """补投测评任务。容器还活着、只是少了题的时候用它 —— 不必重建容器。"""
+    rec = store.load(a.student)
+    if rec.get("mode") != "assessment":
+        _die(f"{a.student} 是 {rec.get('mode')} 模式，没有测评任务可投")
+    dst, head = sandbox.seed_task(a.student, rec.get("track"), force=a.force)
+    print(f"{a.student} 的测评任务已就位：{dst}")
+    print(f"  基线提交 {head}")
+
+
+def cmd_grade_all(a):
+    """批量补批改：mode=assessment 且在采集中、还没有过批改结果的学员，逐个跑采证+批改。
+
+    **已经批改过的学员一律跳过**——不重新采证、不重新判定，旧的
+    harvest-*/grade/grade.json 原样保留。谁的成绩要重判，用单条
+    harvest.py + grade.py 手动跑，不要指望这条批量命令去刷新。
+    毕业学员天然被挡：harvest.harvest() 自己会拒绝对 collecting=False 的人采证，
+    这里的 collecting 过滤只是为了不把他们印进"跳过"名单里添乱。
+    """
+    candidates = [r for r in store.all_students()
+                  if r.get("mode") == "assessment" and r.get("collecting")]
+    if not candidates:
+        print("没有在采集中的测评号")
+        return
+
+    already, done, uncollectable, failed = [], [], [], []
+    for rec in candidates:
+        student = rec["student"]
+        if harvest.has_graded_harvest(student):
+            already.append(student)
+            continue
+        try:
+            outdir, _manifest = harvest.harvest(student, stop_first=a.stop_first)
+        except harvest.HarvestError as e:
+            uncollectable.append((student, str(e).splitlines()[0]))
+            continue
+
+        grade_dir = os.path.join(outdir, "grade")
+        p = subprocess.run(
+            [sys.executable, str(_GRADE_PY), outdir, "--out", grade_dir, "--student", student],
+            capture_output=True, text=True)
+        if p.returncode != 0:
+            failed.append((student, (p.stderr or p.stdout).strip()[:200]))
+            continue
+        done.append(student)
+
+    print(f"新批改 {len(done)} 人" + (f"：{'、'.join(done)}" if done else ""))
+    if already:
+        print(f"已经批改过，跳过 {len(already)} 人：{'、'.join(already)}")
+    if uncollectable:
+        print(f"采不了证，跳过 {len(uncollectable)} 人：")
+        for s, why in uncollectable:
+            print(f"  {s} —— {why}")
+    if failed:
+        print(f"批改本身报错 {len(failed)} 人（grade.py 非零退出，需要人工看）：")
+        for s, why in failed:
+            print(f"  {s} —— {why}")
+
+
+def cmd_image_audit(a):
+    """核对每名学员档案里记的镜像身份和容器实际在跑的是不是同一个。
+
+    这条命令存在的理由：档案里那行 image 长期只是个 tag，而 tag 会撒谎——
+    老的构建戳只哈希 versions.lock，改一行 rootfs 重建就会把同名 tag 挪到
+    新镜像上，学员档案指着的还是那串字符，指向的却已经是别的环境了。
+
+    **默认只读，一个字都不写。** --fix 只动两类字段：
+      · 档案里压根没有的 image_id / image_stamp —— 从容器补上；
+      · 和容器实际镜像对不上的 image / image_id —— 以容器为准改正。
+    别的字段一律不碰，容器不在就跳过（没有地面真相可依，硬写等于编)。
+    """
+    rows = store.all_students()
+    if not rows:
+        print("还没有学员")
+        return
+
+    fixed, drift, gone, skipped = [], [], [], []
+    print(f"{'学员':<12}{'状态':<10}{'档案里的 tag':<32}{'容器在跑的 image id':<24}{'构建戳'}")
+    for rec in rows:
+        student = rec["student"]
+        real = sandbox.image_identity(student)
+        if real["source"] != "container":
+            skipped.append(student)
+            status = "无容器"
+        elif not rec.get("image_id"):
+            status = "缺 id"
+        elif rec["image_id"] != real["image_id"]:
+            status = "对不上"
+            drift.append(student)
+        else:
+            status = "ok"
+        if real["image"] == sandbox.IMAGE_GONE:
+            gone.append(student)
+
+        print(f"{student:<12}{status:<10}{str(rec.get('image') or '-'):<32}"
+              f"{real['image_id'][7:19] if real['image_id'].startswith('sha256:') else real['image_id']:<24}"
+              f"{real['image_stamp']}")
+
+        if a.fix and status in ("缺 id", "对不上"):
+            store.update(student, **{k: real[k] for k in _IMAGE_FIELDS})
+            fixed.append(student)
+
+    print()
+    if gone:
+        print(f"环境已不可复现 {len(gone)} 人：{'、'.join(gone)}")
+        print("  容器还在跑，但它那份镜像已经不在本地了 —— 开不出第二个一样的环境。")
+        print("  记下的 image_id 仍然是准确的历史事实，只是没法再拿它复原了。")
+    if drift and not a.fix:
+        print(f"档案和容器对不上 {len(drift)} 人：{'、'.join(drift)}（加 --fix 以容器为准改正）")
+    if skipped:
+        print(f"没有容器、无从核对 {len(skipped)} 人：{'、'.join(skipped)}")
+    if a.fix:
+        print(f"已改正 {len(fixed)} 人" + (f"：{'、'.join(fixed)}" if fixed else ""))
+    else:
+        print("（只读。要写回档案：sandctl image-audit --fix）")
+
+
+def cmd_destroy(a):
+    rec = store.load(a.student)
+    if rec.get("collecting"):
+        gateway.revoke_key(rec["gateway_key_id"])
+    sandbox.destroy(a.student, keep_volume=a.keep_volume)
+    store.remove(a.student)
+    print(f"{a.student} 已删除"
+          f"{'（卷保留）' if a.keep_volume else '（卷一并删除）'}")
+    print(f"  证据目录 {rec['evidence_dir']} 没有动 —— 要删请人工确认后再删")
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="sandctl", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    def with_student(name, fn, help_):
+        s = sub.add_parser(name, help=help_)
+        s.add_argument("student")
+        s.set_defaults(fn=fn)
+        return s
+
+    c = with_student("create", cmd_create, "开一个学员沙盒")
+    c.add_argument("--mode", choices=MODES, default="course")
+    c.add_argument("--track", choices=TRACKS, default=None)
+
+    b = with_student("bind", cmd_bind, "绑飞书 open_id（web 前端认人靠它）")
+    b.add_argument("--lark-open-id", required=True)
+
+    m = with_student("module", cmd_module, "记模块通过状态（轨道页进度的唯一来源）")
+    m.add_argument("module_id")
+    m.add_argument("--state", choices=("exempt", "pass", "reset"), required=True)
+    m.add_argument("--by", default="admin", help="谁判的，进档案备查")
+
+    me = with_student("module-evidence", cmd_module_evidence,
+                      "验收前看线索：证据里和某个模块沾边的片段（只读，不判定）")
+    me.add_argument("module_id", nargs="?", default=None, help="不给就出整条轨道的总览")
+    me.add_argument("--limit", type=int, default=20, help="每路来源最多印几条")
+
+    with_student("url", cmd_url, "打印终端地址与口令")
+    with_student("info", cmd_info, "看档案")
+    with_student("start", cmd_start, "启动容器")
+    with_student("stop", cmd_stop, "停止容器")
+    with_student("selfcheck", cmd_selfcheck, "在学员容器里跑镜像自检（只查版本）")
+    with_student("doctor", cmd_doctor, "运行期体检：每件工具真的发一次请求")
+    sd = with_student("seed", cmd_seed, "补投测评任务（容器还活着时的修补口）")
+    sd.add_argument("--force", action="store_true", help="已存在时先删再投 —— 会盖掉学员写的东西")
+    with_student("graduate", cmd_graduate, "毕业：吊销 key，采集归零（§8）")
+    d = with_student("destroy", cmd_destroy, "彻底删除")
+    d.add_argument("--keep-volume", action="store_true")
+
+    ls = sub.add_parser("list", help="列出全部学员")
+    ls.set_defaults(fn=cmd_list)
+
+    ia = sub.add_parser("image-audit", help="核对档案里的镜像身份和容器实际在跑的是否一致")
+    ia.add_argument("--fix", action="store_true",
+                    help="以容器为准，把缺失/对不上的 image_id、image_stamp 写回档案")
+    ia.set_defaults(fn=cmd_image_audit)
+
+    ga = sub.add_parser("grade-all", help="批量补批改：只处理还没批改过的采集中测评号")
+    ga.add_argument("--stop-first", action="store_true",
+                    help="逐个学员先停容器再采证——保证静止态，推荐")
+    ga.set_defaults(fn=cmd_grade_all)
+
+    a = p.parse_args(argv)
+    try:
+        a.fn(a)
+    except (store.StoreError, sandbox.SandboxError, gateway.GatewayError,
+            module_evidence.ModuleEvidenceError) as e:
+        _die(str(e))
+
+
+if __name__ == "__main__":
+    main()

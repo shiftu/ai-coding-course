@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# 镜像自检：实际装的版本必须和 versions.lock 一致，且学员看到的登录 shell 里
+# 各条路径都对。构建期跑一次（不符就中止构建），sandctl 交付容器前再跑一次。
+#
+# 必须用登录 shell 跑：bash -lc microclass-selfcheck
+#   —— /etc/profile 会重置 PATH，非登录 shell 的绿灯是假绿。
+set -uo pipefail
+fail=0
+chk() { # chk <名字> <期望子串> <命令...>
+  local name="$1" want="$2"; shift 2
+  local got; got=$("$@" 2>&1 | head -1)
+  if [[ "$got" == *"$want"* ]]; then printf '  ok   %s = %s\n' "$name" "$want"
+  else printf '  FAIL %s: 期望含 %q，实际 %q\n' "$name" "$want" "$got"; fail=1; fi
+}
+
+chk claude-code "${CLAUDE_CODE_VERSION:?}" claude --version
+chk codex       "${CODEX_VERSION:?}"       codex --version
+chk lark-cli    "${LARK_CLI_VERSION:?}"    lark-cli --version
+chk ttyd        "${TTYD_VERSION:?}"        ttyd --version
+chk asciinema   "${ASCIINEMA_VERSION:?}"   asciinema --version
+chk hermes      "Hermes Agent"             hermes --version
+chk pytest      "${PYTEST_VERSION:?}"      python3 -m pytest --version
+chk glow        "${GLOW_VERSION:?}"        glow --version
+chk "python3 指向 venv" /opt/hermes/.venv/bin/python3 command -v python3
+chk less        /usr/bin/less              command -v less
+
+# claude-code 的 Bash 放行（沙盒镜像要求 1）
+chk "Bash 已放行" True python3 -c \
+  'import json;print("Bash" in json.load(open("/etc/claude-code/managed-settings.json"))["permissions"]["allow"])'
+
+chk "速查卡在位" "# 速查卡" head -1 /opt/microclass/cheatsheet.md
+
+# 沙盒镜像要求 5：预置仓库的属主可能和容器用户不一致，git 会罢工，
+# 而 git 状态是证据源之一 —— 哑掉了批改会误判成"这人没碰过代码"。
+chk "git 认预置仓库" "*" git config --system --get safe.directory
+
+[ "$fail" = 0 ] || { echo "自检不通过"; exit 1; }
+echo "自检通过"

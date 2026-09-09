@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Coding 微课堂 · 两周新人训练营</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --ink: #1f2329; --sub: #646a73;
+    --line: #e5e6eb; --accent: #1677ff; --accent-bg: #e8f1ff;
+    --green: #00b578; --green-bg: #e6f7f0; --amber: #ff9f0a; --amber-bg: #fff7e6;
+    --red: #e5484d; --red-bg: #fdecec; --purple: #7c5cff; --purple-bg: #f0edff;
+    --code-bg: #f2f3f5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.7; font-size: 15px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1677ff 0%, #7c5cff 60%, #c084fc 100%); color: #fff; border-radius: 16px; padding: 36px 40px; margin-bottom: 28px; }
+  header.hero h1 { font-size: 30px; letter-spacing: 1px; margin-bottom: 8px; }
+  header.hero .sub { opacity: .92; font-size: 15px; }
+  header.hero .meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
+  header.hero .meta span { background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); padding: 3px 12px; border-radius: 999px; font-size: 13px; }
+  h2 { font-size: 21px; margin: 36px 0 14px; padding-left: 12px; border-left: 4px solid var(--accent); }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  p { margin: 8px 0; color: var(--ink); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #fafbfc; font-weight: 600; white-space: nowrap; }
+  code { font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 13px; background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+  pre { background: #1e2226; color: #e8eaed; border-radius: 10px; padding: 14px 18px; overflow-x: auto; margin: 10px 0; font-size: 13px; line-height: 1.6; }
+  pre code { background: none; color: inherit; padding: 0; font-size: 13px; }
+  .tag { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-right: 6px; }
+  .tag.rec { background: var(--red-bg); color: var(--red); }
+  .tag.rw { background: var(--amber-bg); color: var(--amber); }
+  .tag.ops { background: var(--green-bg); color: var(--green); }
+  .tag.core { background: var(--accent-bg); color: var(--accent); }
+  .tag.mix { background: var(--purple-bg); color: var(--purple); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  .box { border-radius: 10px; padding: 12px 16px; margin: 10px 0; font-size: 14px; }
+  .box.blue { background: var(--accent-bg); border: 1px solid #c9ddff; }
+  .box.green { background: var(--green-bg); border: 1px solid #b8e8d5; }
+  .box.amber { background: var(--amber-bg); border: 1px solid #ffe4b3; }
+  .box.red { background: var(--red-bg); border: 1px solid #f8c4c6; }
+  .box.purple { background: var(--purple-bg); border: 1px solid #d5ccf8; }
+  .box .t { font-weight: 700; margin-bottom: 4px; }
+  ol.steps { padding-left: 22px; }
+  ol.steps li { margin: 6px 0; }
+  ol.steps li strong { color: var(--accent); }
+  .lesson { border-left: 4px solid var(--accent); }
+  .lesson .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .lesson .head .no { font-size: 22px; font-weight: 800; color: var(--accent); }
+  .lesson .head .title { font-size: 18px; font-weight: 700; }
+  .lesson .head .dur { color: var(--sub); font-size: 13px; }
+  .lesson .goal { color: var(--sub); margin-bottom: 10px; }
+  .lesson h4 { font-size: 14px; margin: 14px 0 6px; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; }
+  .toc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+  @media (max-width: 720px) { .toc { grid-template-columns: 1fr; } }
+  .toc a { color: var(--ink); text-decoration: none; padding: 6px 10px; border-radius: 8px; display: block; }
+  .toc a:hover { background: var(--accent-bg); }
+  .toc .d { color: var(--sub); font-size: 13px; }
+  .toc .n { display: inline-block; min-width: 24px; font-weight: 700; color: var(--accent); }
+  .footer { margin-top: 48px; text-align: center; color: var(--sub); font-size: 13px; }
+  .kbd { display: inline-block; background: var(--code-bg); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 7px; font-family: monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>🤖 AI Coding 微课堂</h1>
+  <div class="sub">两周新人训练营 —— 把内部技术分享切片串联成课程，让新人在入职前两周跨越工具门槛，把精力留给业务思考</div>
+  <div class="meta">
+    <span>⏱ 10 期 × 30-45 分钟</span>
+    <span>👥 对象：新入职工程师（0-2 年）</span>
+    <span>🛠 基于公司真实工具链</span>
+    <span>✍️ 每期有演示 + 实操 + 交付物</span>
+  </div>
+</header>
+
+<!-- ============ 课程定位 ============ -->
+<div class="card">
+  <h3>📌 课程定位与设计原则</h3>
+  <p><b>从"求人"到"自助"：</b>新人的两周不是用来背文档的，而是学会一套与 AI 共事的作业方式 —— 让 AI 承担查找、实现、验证、汇报的体力活，把精力解放给业务策略思考。</p>
+  <p><b>三段式结构（每期）：</b></p>
+  <div class="grid2">
+    <div class="box blue"><div class="t">🎬 演示（10-15 min）</div>讲师按「演示剧本」现场操作录屏。剧本已经写好，照着敲即可，无需临场发挥。</div>
+    <div class="box green"><div class="t">🖐 实操（20-30 min）</div>学员按「实操清单」自己动手，每步附预期输出，卡住能自检。做完交「交付物」到课程仓库。</div>
+  </div>
+  <p><b>素材串联机制：</b>每期标注「复用现有录制」+「新录片段」，技术分享不用重新讲，只补首尾衔接和实操引导。<b>讲师轮值</b>：每期由一位 senior 认领，只负责新录的 5-10 分钟片段。</p>
+</div>
+
+<!-- ============ 目录 ============ -->
+<h2>🗺 课程地图（两周速览）</h2>
+<div class="card toc">
+  <a href="#d0"><span class="n">D0</span> 开营准备 · 环境清单 <span class="d">（开营前一天自助完成）</span></a>
+  <a href="#l1"><span class="n">D1</span> 第 1 课 · 工具全景：找到你的 AI 工具箱</a>
+  <a href="#l2"><span class="n">D2</span> 第 2 课 · Claude Code / Codex：第一个结对工程师</a>
+  <a href="#l3"><span class="n">D3</span> 第 3 课 · Hermes Agent：团队的数字员工</a>
+  <a href="#l4"><span class="n">D4</span> 第 4 课 · 把需求说清楚：从一句话到可执行 Spec</a>
+  <a href="#l5"><span class="n">D5</span> 第 5 课 · 质量守门员：TDD + 自动 Review + 验证</a>
+  <a href="#l6"><span class="n">D6</span> 第 6 课 · 数据自助：PostHog / Prometheus 不求人</a>
+  <a href="#l7"><span class="n">D7</span> 第 7 课 · 自动化与订阅：让机器自己干活</a>
+  <a href="#l8"><span class="n">D8</span> 第 8 课 · 飞书生态：文档 · 表格 · 审批 · 机器人</a>
+  <a href="#l9"><span class="n">D9</span> 第 9 课 · 工程红线：成本 · 安全 · 合规</a>
+  <a href="#l10"><span class="n">D10</span> 第 10 课 · 毕业项目：两周内交付一个真实功能</a>
+  <a href="#cheat"><span class="n">附</span> 速查卡 &amp; 翻车现场 Top 10</a>
+</div>
+
+<!-- ============ D0 ============ -->
+<h2 id="d0">Day 0 · 开营准备（自选动作，开营前一天）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">0</span><span class="title">环境清单：把武器先领了</span><span class="dur">约 30 分钟 · 管理员提前开通权限</span></div>
+  <div class="goal">目标：每个新人开营前拥有完整账号与工具链，第 1 课直接开讲，不浪费课堂时间。</div>
+  <div class="box green"><div class="t">✅ 人员开通（HR/IT 在新人入职当天完成）</div>
+    <ul>
+      <li>Gitea 账号（<code>gitea.jiangtao.lol</code>，加入 <code>ai-workshop</code> 组织）</li>
+      <li>llm-gateway 团队 + API Key（管理员在网关建 <code>team=新人姓名</code>，发 <code>ak_xxx</code>；配月度 budget）</li>
+      <li>飞书开发者/机器人权限（新人自己的 Hermes 会话用）</li>
+      <li>PostHog / Prometheus / SigNoz 只读账号</li>
+    </ul>
+  </div>
+  <div class="box blue"><div class="t">🛠 新人本机安装（步骤，按序执行）</div>
+    <ol class="steps">
+      <li>确认 llm-gateway 连通：<code>curl -s http://127.0.0.1:7421/v1/models -H "Authorization: Bearer $LLM_GW_KEY" | head -5</code> → 见到模型列表即通（<i>注意用 127.0.0.1，公网域名会被 WAF 拦 403</i>）</li>
+      <li>安装 Hermes Agent：<code>curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash</code></li>
+      <li>体检：<code>hermes doctor</code> → 全绿通过</li>
+      <li>安装 Claude Code：<code>npm install -g @anthropic-ai/claude-code</code>；Codex：<code>npm install -g @openai/codex</code></li>
+      <li>两个都指向内部网关（环境变量：<code>ANTHROPIC_BASE_URL=http://127.0.0.1:7421/v1</code>、<code>OPENAI_BASE_URL=http://127.0.0.1:7421/v1</code>，Key 用 llm-gateway 发的）</li>
+      <li>安装 lark-cli：<code>npm install -g @larksuite/cli</code></li>
+      <li>Fork 课程练习仓库 <code>ai-workshop/playground</code> 到自己名下，<code>git clone</code> 到本地</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 常见坑</div>
+    <ul>
+      <li>用公网域名 <code>llm.jiangtao.lol</code> 直连 → Cloudflare WAF 403「Your request was blocked」。一律走 <code>127.0.0.1:7421</code>。</li>
+      <li>Key 必须存 <code>~/.hermes/.env</code> 或 macOS Keychain，<b>严禁 commit 进仓库</b>。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L1 ============ -->
+<h2 id="l1">第 1 课 · 工具全景：找到你的 AI 工具箱（D1）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">1</span><span class="title">内部 AI 工具地图长什么样</span><span class="dur">40 min · 素材：复用内部 Hermes 技术分享 + 新录 5 min</span></div>
+  <div class="goal">目标：建立全局心智 —— <b>llm-gateway 是"水电"（统一模型出口），三个入口（CLI 结对 / Hermes 数字员工 / 飞书机器人），一套数据平台（PostHog/Prometheus/SigNoz），一个协作中枢（Gitea）</b>。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（讲师 10 分钟）</div>
+    <ol class="steps">
+      <li>画架构图：llm-gateway（127.0.0.1:7421）← Claude Code / Codex / Hermes / 飞书机器人，全部同源</li>
+      <li>现场验证网关：<code>curl http://127.0.0.1:7421/v1/models -H "Authorization: Bearer $KEY"</code> 展示模型清单</li>
+      <li>打开 <code>hermes status</code> / <code>hermes doctor</code>，展示本机已连的飞书、Telegram、微信通道</li>
+      <li>打开 Gitea 组织页面，指出练习仓库、Issue/Milestone 用法（<i>公司规范：计划同步到 Milestone，不写外部 md</i>）</li>
+      <li>演示一次「一句话派活」：<code>hermes chat -q "查一下这个仓库最近 7 天的 commit 统计"</code>（在 playground 目录）</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（25 分钟）</div>
+    <ol class="steps">
+      <li>完成 Day0 清单；在 <code>ai-workshop</code> 组织的 Issue 里报到（标题：<code>名字 - 第1课</code>）</li>
+      <li>依次跑 <code>claude --version</code>、<code>codex --version</code>、<code>hermes --version</code>、<code>lark-cli doctor</code>，四条命令全部有输出版本号 → <b>预期输出：无 error</b></li>
+      <li>在 playground 仓库目录跑 <code>hermes chat -q "README 里哪些命令是过时的？列出 3 处"</code> → <b>预期输出：3 条带行号的结论</b></li>
+      <li>把这次对话的 session 重命名：<code>hermes sessions rename &lt;ID&gt; "第1课-仓库体检"</code></li>
+      <li>在 Gitea 练习仓库建第一个 Milestone「两周训练营」，把 Day0-D10 各建一个 Issue 挂进去（教学如何用 Milestone 跟踪计划）</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>不要同时开三个入口做同一件事 —— 先选一个主入口，入门期用 CLI（可读性强、能看日志）。</li>
+      <li>「版本号没打出来」90% 是 npm 目录不在 PATH，报给讲师，5 秒解决，别自己折腾。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L2 ============ -->
+<h2 id="l2">第 2 课 · Claude Code / Codex：第一个结对工程师（D2）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">2</span><span class="title">让 AI 写第一段真代码</span><span class="dur">45 min · 素材：复用任一「AI 结对编程」内部分享 + 新录 8 min</span></div>
+  <div class="goal">目标：掌握 CLI 结对工程师的完整工作循环 —— 给需求 → 审计划 → 看着它实现 → 自己验证 → 提交 PR。同时学会"防 AI 乱来"的三个开关。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（15 分钟，在 playground 仓库）</div>
+    <ol class="steps">
+      <li>展示任务：给仓库加一个 <code>dedup.py</code>（对日志里的重复行去重并统计），需求一句话说清</li>
+      <li>先开新分支：<code>git checkout -b feat/dedup</code>；进入 <code>claude</code> 或 <code>codex</code></li>
+      <li>让它<b>先讲计划再动手</b>（Claude Code 用 plan 模式 / Codex 用 <code>--approval-mode</code> 或先问它）→ 展示 AI 的计划，讲师说"这里范围大了，先做输入和去重，统计放 V2"，收窄</li>
+      <li>放它实现（演示不要一次放全程 —— <b>分两段：先核心函数，验收后再补 CLI 入口</b>）</li>
+      <li>不信任自报：讲师自己跑 <code>python3 dedup.py samples/dup.log | head</code>，手工核对输出，再 <code>git diff</code> 审一眼改动</li>
+      <li>提交 & 推送，在 Gitea 建 PR（关联第 1 课的 Issue）</li>
+      <li>演示 <kbd>/clear</kbd>（每阶段开新上下文）与 checkpoint（<code>git commit</code> 就是人类最好的 checkpoint）</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（30 分钟）</div>
+    <ol class="steps">
+      <li>在 playground 里选一个练习 Issue（讲师预埋 5 个小任务：加参数、改文案、写单测、修 bug、写 README 片段）</li>
+      <li>新分支 → 进 CLI agent → 先要计划 → 用一句话收窄范围 → 放它实现</li>
+      <li><b>自己验证</b>：跑起来、给真实输入、对输出；用 <code>git diff</code> 通读一遍改动（看有没有删了无关代码 / 引入魔法常量）</li>
+      <li>提 PR 到 <code>ai-workshop/playground</code>，标题带 Issue 号（如 <code>#12 feat: 添加 --dry-run 参数</code>）</li>
+      <li><b>交付物</b>：PR 链接 + 一句话复盘（哪一步 AI 帮最多、哪一步它在瞎搞）贴到自己的 Issue</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li><b>别让它一口气写完 300 行再回来</b> —— 计划一次、实现一次、验证一次，节奏要可控。</li>
+      <li>它说"完成了"不算数，<b>你要跑一遍并看过 diff 才算数</b>（这是全课最重要的习惯，第 5 课会强化）。</li>
+      <li>改需求时先 <kbd>/clear</kbd> 或明确说"忽略上一条"，否则它会把新旧需求缝在一起。</li>
+      <li>全权限模式（<code>--dangerously-skip-permissions</code>）新手禁用，先学会审。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L3 ============ -->
+<h2 id="l3">第 3 课 · Hermes Agent：团队的数字员工（D3）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">3</span><span class="title">从"对话工具"到"有记忆的同事"</span><span class="dur">45 min · 素材：复用内部 Hermes 分享 + 新录 10 min</span></div>
+  <div class="goal">目标：理解 Hermes 与 CLI 结对工具的本质区别 —— <b>Skills（会积累的做法）+ Memory（记得住你是谁）+ Tools（真能操作系统）</b>，并学会把重复劳动"外包"给它。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（15 分钟）</div>
+    <ol class="steps">
+      <li><code>hermes</code> 开一个会话，演示三个真正有用的能力：</li>
+      <li><b>tools</b>：<code>/tools</code> 看工具清单（web / terminal / file / delegation / cronjob…），演示让它 <code>搜索"AI Agent 本周新闻"</code> 并总结 3 条</li>
+      <li><b>skills</b>：<code>hermes skills list</code> 展示内部沉淀的技能库（PostHog 分析、周报生成、健康检查…），演示加载一个 skill 后行为变化：<code>hermes -s posthog-analysis chat -q "这个月的 DAU 趋势"</code></li>
+      <li><b>memory</b>：让它记住"我在第 3 课学员组，打招呼用中文"，然后开新会话验证它还认识你（<code>hermes --continue</code>）</li>
+      <li><b>delegate</b>：演示把一个大任务拆给子代理并行跑：<code>delegate_task</code> 同时查 3 个仓库的 README 并对比</li>
+      <li>gateway 演示：在飞书私聊里给机器人发同一个问题，机器人带着全部工具干活（数字员工 7×24 在岗）</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（30 分钟）</div>
+    <ol class="steps">
+      <li>给自己建独立的 Hermes 配置（<code>hermes profile create &lt;名字&gt;</code>），配成内部网关模型</li>
+      <li>在会话里让 Hermes 记住你 3 个偏好（如"代码注释用英文"），然后 <code>hermes --continue</code> 开新会话验证记忆生效 → <b>预期：它自己说出你的偏好</b></li>
+      <li>用 <code>hermes chat -q</code> 一次性完成：查 playground 的 TODO 注释数量 + 列出前 5 条 → 输出到 <code>todo-report.md</code></li>
+      <li>体验 <code>/rollback</code>：让它故意改坏一个文件，用 checkpoint 恢复（演示"AI 闯祸有后悔药"）</li>
+      <li><b>交付物</b>：把上面 4 步的 session 链接（<code>@session:.../...</code> 或 <code>hermes sessions list</code> 截图）发到 Issue</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>子代理的结果是<b>自报成绩</b>，不是事实 —— 它说"上传成功"你要自己验证（第 5 课有真实翻车案例）。</li>
+      <li>技能是团队的资产：发现技能过时或漏步骤，当场 <code>skill_manage</code> 修掉，别憋着。</li>
+      <li>cron / 后台任务跑完要检查投递；没收到通知 ≠ 没干活，也可能是投递目标写错。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L4 ============ -->
+<h2 id="l4">第 4 课 · 把需求说清楚：从一句话到可执行 Spec（D4）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">4</span><span class="title">AI 时代的第一生产力：写清楚问题</span><span class="dur">40 min · 素材：复用需求评审相关分享 + 新录 8 min</span></div>
+  <div class="goal">目标：明白"AI 不会替你思考需求"。学会一分钟的 brainstorming → 结构化 spec → 可执行计划 → 执行的流水线，让 AI 的产出可预期。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（15 分钟）</div>
+    <ol class="steps">
+      <li>拿一个真实模糊需求："优化一下 playground 仓库的 README 体验"（大家都会遇到的原话）</li>
+      <li>先让 AI 提问（brainstorming）：一次一个问题，挖出"读者是谁 / 痛点是什么 / 成功的标准"—— 引导出 3 个关键约束</li>
+      <li>把约束写成一页 spec：目标 / 范围（含"不做"）/ 验收标准 / 交付物</li>
+      <li>用 spec 生成实施计划（writing-plans）：拆成 5 个 bite-size 任务，每个任务有路径和验收</li>
+      <li>按计划执行（executing-plans），展示"计划先行"和"直接开干"的耗时差异（约 1:3）</li>
+      <li>总结金句模板：<b>「用户 + 场景 + 现状痛点 + 期望 + 验收」五要素</b>，贴上墙</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（25 分钟）</div>
+    <ol class="steps">
+      <li>从讲师给的 3 个模糊需求里选 1 个（如"给 playground 加个有用的工具"）</li>
+      <li>逼 AI 先问 3 个问题再动手；把五要素填进 spec 模板（仓库 <code>docs/spec-template.md</code>）</li>
+      <li>用 spec 生成计划 → 让 AI 自评计划（找 1 个遗漏风险），修正后再执行</li>
+      <li><b>交付物</b>：spec + 计划 + 执行结果三位一体提交 PR，评审人 = 旁边的同事（讲师分组）</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>模糊需求直接让 AI 写码 = 高概率白干，返工成本远大于思考成本。</li>
+      <li>Spec 里必须写「不做什么」（YAGNI），否则 AI 会把范围越滚越大。</li>
+      <li>验收标准要可测量："加载更快"❌ → "P95 从 800ms 降到 400ms 以下"✅。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L5 ============ -->
+<h2 id="l5">第 5 课 · 质量守门员：TDD + 自动 Review + 验证（D5）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">5</span><span class="title">AI 写得快，谁来保证对？</span><span class="dur">45 min · 素材：复用 Code Review 规范分享 + 新录 10 min</span></div>
+  <div class="goal">目标：建立"AI 产出必须过三道闸"的习惯 —— 测试先行（TDD）、提交前自动 review、完成前独立验证。这是全营最重要的一课。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（15 分钟）</div>
+    <ol class="steps">
+      <li><b>TDD 红绿重构</b>：先写测试（红）→ 让 AI 实现到绿 → 重构。演示"先测试后代码"如何天然约束 AI 不乱来</li>
+      <li><b>自动 Review</b>：拿一个"看起来没问题"但有 3 个隐患的 diff（yes 安全漏洞/魔法数字/日志泄漏），让 agent 按 requesting-code-review 流程审 → 逐条命中</li>
+      <li><b>验证闭环</b>：演示真实翻车案例 —— 子代理汇报"图片已上传"，实际 404。结论：agent 每报一个"完成"，都要问"证据呢？给我 URL / 文件路径 / 测试输出"</li>
+      <li>verification-before-completion：演示交付前 checklist（跑全量测试、看真实输出、检查 diff、检查日志无报错）</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（30 分钟）</div>
+    <ol class="steps">
+      <li>挑一个练习 Issue，先用 <code>pytest</code> 写 3 个失败断言（红），再放 AI 实现到全绿</li>
+      <li>提交前让 agent 评审自己的 diff，把发现的问题修掉，记录"AI 审出 2 个，人工又发现 1 个"</li>
+      <li>在 PR 描述里附上验证证据：测试输出截图 / 命令输出 → <b>预期：评审同事不需要再问"跑过没有"</b></li>
+      <li><b>交付物</b>：一个"测试红→绿"的 PR + 三段提交说明（测试/实现/验证）</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>"AI 写的代码不用测"是最大的幻觉 —— AI 生成代码的出 bug 率取决于上下文完整度，测试是唯一保险。</li>
+      <li>自动 review 能抓 80% 的机械问题，但业务语义正确性只能人来判断。</li>
+      <li>收到 review 意见先理解再改（receiving-code-review 流程），不要条件反射反驳或盲从。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L6 ============ -->
+<h2 id="l6">第 6 课 · 数据自助：PostHog / Prometheus 不求人（D6）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">6</span><span class="title">以后查数别排队了</span><span class="dur">40 min · 素材：复用埋点/数据平台分享 + 新录 8 min</span></div>
+  <div class="goal">目标：用自然语言查询公司数据平台 —— 产品看 PostHog（活跃/漏斗/付费转化）、基础设施看 Prometheus（成本/资源）、线上问题看 SigNoz（链路/trace），全程不写一行 SQL。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（12 分钟，用 preloaded 的 posthog-analysis skill）</div>
+    <ol class="steps">
+      <li>演示三连问：<code>hermes -s posthog-analysis chat -q "昨天 DAU 多少？新老用户各多少？"</code>
+        <ul><li>口径现场讲清楚：<b>总 DAU = Active Action 事件，新用户 = S-UserRegister（首次打开自动游客注册），老用户 = 总 - 新</b></li></ul>
+      </li>
+      <li>漏斗：<code>"从首页浏览到付费的转化漏斗，哪一步流失最大？"</code> → 图表 + 结论</li>
+      <li>成本：用 Prometheus 查本月 AI token 花费趋势（accrush-cost-tracking / aws-cost-explorer skill）→ 展示"钱花在哪"</li>
+      <li>线上问题：SigNoz 查最近 1 小时最高错误率的服务 → 定位到一条 trace</li>
+      <li>演示一键周报：让 agent 生成交互式 HTML 周报（含 WoW 对比、异常标记），本地起服务给链接</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（25 分钟）</div>
+    <ol class="steps">
+      <li>用自然语言查 3 个指标：昨日 DAU、日新增、付费转化（用演示里的口径核对数字是否一致）</li>
+      <li>查一次你自己的项目/用户在事件里的活跃度，写一句业务结论（"新用户首日留存偏低"类）</li>
+      <li>把某一天的会话/事件数据导出到本地 CSV，<code>head</code> 看前 5 行 → <b>预期：列名与文档一致</b></li>
+      <li><b>交付物</b>：Issue 里贴 1 个查询的结论 + 1 张图 + "口径说明"（为什么是这个数）</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>看数据先讲口径：New/DAU/转化在不同团队定义可能不同，先对齐"事件定义"再下结论。</li>
+      <li>按 bot_id 而不是 bot_name 关联事件（同一 bot 在不同事件类型里名字可能不一致）。</li>
+      <li>成本数据有 1-2 天延迟，别拿昨天的数当实时数。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L7 ============ -->
+<h2 id="l7">第 7 课 · 自动化与订阅：让机器自己干活（D7）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">7</span><span class="title">把"每天要做的重复事"变成 cron</span><span class="dur">45 min · 素材：复用监控/告警分享 + 新录 10 min</span></div>
+  <div class="goal">目标：学会三类自动化 —— 定时任务（cron）、状态监控（只报变化）、事件订阅（webhook），从此"重复劳动不占用人"。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（15 分钟）</div>
+    <ol class="steps">
+      <li><b>定时任务</b>：现场建一个每天早上 9:30 的「每日站会摘要」cron —— 拉日历 + 任务，汇总成 3 行推给飞书（lark-workflow-standup-report）→ <code>hermes cron create "30 9 * * *"</code></li>
+      <li><b>状态监控</b>：给内网某 URL 挂健康检查（health-check-monitor），故意停掉服务 → 几分钟后只收到一条"DOWN"通知；恢复后再收一条"UP"（<b>只报变化，不刷屏</b>）</li>
+      <li><b>事件订阅</b>：webhook 订阅一个外部事件源，事件发生时 agent 自动处理并回复</li>
+      <li><b>行业情报</b>：展示每日 AI Agent 趋势摘要 / 设计周刊的 cron 输出长什么样（复用已有订阅）</li>
+      <li>演示投递配置：origin（回当前会话）/ 指定飞书群 / 失败时的错误告警</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（30 分钟）</div>
+    <ol class="steps">
+      <li>建一个自己的 cron：每天下班前自动汇总当天 Issue/PR 状态到飞书私聊 → <code>hermes cron create</code>，<code>hermes cron list</code> 确认在列</li>
+      <li>给 playground 的 CI URL 挂一个健康检查，验证收到一条通知（建议先让它失败一次看报警）</li>
+      <li>把 cron 手动触发一次：<code>hermes cron run &lt;ID&gt;</code>，验证投递内容 → <b>预期：飞书收到消息</b></li>
+      <li><b>交付物</b>：cron 任务截图 + 一条真实投递消息转发到 Issue</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>监控脚本输出必须<b>稳定</b>（不要带时间戳/随机顺序），否则每次 tick 都算"变化"，天天报警。</li>
+      <li>cron 的 prompt 必须自包含 —— 它运行在一个全新会话里，没有你刚才说的话。</li>
+      <li>自动化也要有兜底：非零退出会发错误告警，这是特性（能及时发现 broken watchdog），别关掉。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L8 ============ -->
+<h2 id="l8">第 8 课 · 飞书生态：文档 · 表格 · 审批 · 机器人（D8）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">8</span><span class="title">让 AI 帮你过一遍飞书里的行政活</span><span class="dur">40 min · 素材：复用飞书/Lark 开发分享 + 新录 8 min</span></div>
+  <div class="goal">目标：用 lark-cli 打通飞书全家桶 —— 云端文档、多维表格、电子表格、日历、会议纪要、审批、通讯录。日常"跟飞书死磕"的时间归零。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（12 分钟）</div>
+    <ol class="steps">
+      <li><b>会议纪要</b>：汇总最近一周的会议纪要，生成结构化周报（lark-workflow-meeting-summary）→ 一键产出 Markdown 报告</li>
+      <li><b>多维表格</b>：读一张业务 Base 表，问"最近 30 天新增了多少条记录，按负责人分组" → 直接得到分组统计（<code>lark-cli bitable record search</code>）</li>
+      <li><b>文档</b>：让 agent 把一份草稿整理成飞书云文档并发出去（<code>lark-cli doc create</code>）</li>
+      <li><b>审批/考勤</b>：查待办审批列表、考勤打卡记录（谁补卡了）—— 演示"数据自己会说话"</li>
+      <li>展示 <code>lark-cli doctor</code> 与身份绑定（bot-only vs user-default 的区别）</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（25 分钟）</div>
+    <ol class="steps">
+      <li>让 agent 汇总你最近 3 场会议的标题 + 待办事项，输出一张 Markdown 表</li>
+      <li>在练习多维表格里建一张「训练营作业登记表」，用 lark-cli 写入今天这条作业记录</li>
+      <li>把第 5 课的 PR 内容整理成一页飞书文档（标题/摘要/链接一键生成），分享给讲师</li>
+      <li><b>交付物</b>：飞书文档链接 + 参会人待办截图贴 Issue</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>身份权限：只读场景用 bot-only，别乱绑定 user-default 去操作别人的资源。</li>
+      <li>lark-cli 初始化的坑（keychain 写入失败等）—— 遇到先跑 <code>lark-cli doctor</code>，按提示走 stdin 方式补凭证，别重开。</li>
+      <li>写操作（发文档、建表格）执行前让 agent 把内容念给你听一遍。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L9 ============ -->
+<h2 id="l9">第 9 课 · 工程红线：成本 · 安全 · 合规（D9）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">9</span><span class="title">用 AI 的边界在哪里</span><span class="dur">40 min · 素材：复用安全/成本治理分享 + 新录 8 min</span></div>
+  <div class="goal">目标：成本看得见、密钥留得住、操作可撤销、数据不出境。学会用工具而不是靠自觉守住红线。</div>
+  <div class="box blue"><div class="t">🎬 演示剧本（12 分钟）</div>
+    <ol class="steps">
+      <li><b>成本</b>：llm-gateway 查自己 team 的用量与 budget（<code>list_budgets</code>），现场设置一个月度告警阈值；AWS 成本浏览器展示当前 run-rate 和费用大头（真实数据：某环境月 ~$1.1K，关停省 ~$360）</li>
+      <li><b>密钥</b>：演示「密钥进 .env / keychain，不进仓库」；<code>git log -S "sk-"</code> 展示如何查历史泄漏；启用 <code>hermes config set security.redact_secrets true</code>（输出自动打码）</li>
+      <li><b>权限</b>：approvals 三档（manual / smart / off），演示 smart 模式怎么自动放行低风险、拦截高危命令（<code>rm -rf</code> 类）</li>
+      <li><b>审计</b>：展示 agent 的会话记录/session 搜索 —— 所有 AI 干过的活都有迹可循（<code>hermes sessions list / session_search</code>）</li>
+      <li>合规一句话：内部数据走自托管网关，公网模型只进脱敏数据</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">🖐 实操清单（25 分钟）</div>
+    <ol class="steps">
+      <li>查自己 team 过去 7 天的 token 用量和花费，写一句"我的 AI 使用画像"</li>
+      <li>给自己设一个月 budget 和用量告警阈值 → <b>预期：超阈值会收到通知</b></li>
+      <li>扫描 playground 仓库有没有疑似密钥泄漏（<code>git log -S "ak_" --oneline</code>、<code>grep -r "sk-"</code>）→ <b>预期：0 处或找到练习埋的 1 处</b>（讲师预埋的）</li>
+      <li>把密钥全量迁移进 <code>~/.hermes/.env</code>（权限 600），删除仓库里的任何明文凭据</li>
+      <li><b>交付物</b>：Issue 贴 3 句成本结论 + 密钥扫描结果</li>
+    </ol>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>别用旗舰模型跑 cron/批处理 —— 换对模型成本差 10 倍，效果一样。</li>
+      <li>密钥一旦进 git 历史，删文件不够，要 rotation + 清洗历史。</li>
+      <li>成本查询有延迟（1-2 天），做决策用周粒度而不是时点。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ L10 ============ -->
+<h2 id="l10">第 10 课 · 毕业项目：两周内交付一个真实功能（D10）</h2>
+<div class="card lesson">
+  <div class="head"><span class="no">10</span><span class="title">把 9 课串成一条流水线</span><span class="dur">半天 · 素材：讲师演示往年毕业项目 + 新录 5 min</span></div>
+  <div class="goal">目标：独立跑完「想法 → 提问收敛 → Spec → 计划 → TDD 实现 → 自动 Review → 验证 → 上线 → 数据验证」全流程，交付一个<b>真实可用</b>的小功能（不是玩具）。</div>
+  <div class="box purple"><div class="t">🏆 选题池（讲师提供，也可自选，须过验收）</div>
+    <ul>
+      <li>A. 给团队做一个「每日站会摘要」bot（日历 + 任务 + 待办 → 飞书群每日推送）</li>
+      <li>B. 给内网服务做「健康检查 + 状态变化告警」监控</li>
+      <li>C. 用 PostHog 数据做一张团队专属周报（HTML，含异常标记，每周自动生成）</li>
+      <li>D. 自选：一个你入职后真实遇到、想解决的重复劳动</li>
+    </ul>
+  </div>
+  <div class="box blue"><div class="t">🎬 流程（讲师 15 分钟演示标准答案，学员半天实操）</div>
+    <ol class="steps">
+      <li>15 分钟：讲师用选题 A 完整演示一遍流水线（压缩版），学员抄流程不抄代码</li>
+      <li>学员选题目 → brainstorming 收敛到 5 要素 spec → 挂到 Gitea Milestone「两周训练营」</li>
+      <li>计划 → TDD → 实现（允许 CLAUDE/CODEX/Hermes 任意组合，<b>必须提交 AI 协作日志：哪步是 AI 干的</b>）</li>
+      <li>自动 review + 人工互评 → 修 → 合并 → 上线/部署 → 用数据验证生效</li>
+    </ol>
+  </div>
+  <div class="box green"><div class="t">📦 交付物 & 评分</div>
+    <ol class="steps">
+      <li>PR（含 spec + 测试 + 验证证据，合并到 playground 或真实仓库）</li>
+      <li>5 分钟演示（讲师 + 1 位同事评审）</li>
+      <li>复盘 3 条：AI 帮你省了什么 / 哪里差点翻车 / 下两周要沉淀什么技能</li>
+    </ol>
+    <p>评分权重：流程完整 40%（spec/test/验证一个不少）+ 真实可用 30% + 演示质量 20% + 复盘深度 10%。</p>
+  </div>
+  <div class="box red"><div class="t">⚠ 坑</div>
+    <ul>
+      <li>毕业生最常见的失败：绕开 TDD 直接"让 AI 一把梭"，上线后发现回滚成本更高。</li>
+      <li>"上线"定义要小：跑通 + 有人用 + 有日志，就算上线，别追求完美。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ 附录 ============ -->
+<h2 id="cheat">📎 附录</h2>
+
+<div class="card">
+  <h3>🧰 速查卡（贴工位版）</h3>
+  <table>
+    <tr><th>场景</th><th>命令 / 入口</th></tr>
+    <tr><td>网关体检</td><td><code>curl http://127.0.0.1:7421/v1/models -H "Authorization: Bearer $KEY"</code></td></tr>
+    <tr><td>Hermes 体检</td><td><code>hermes doctor</code> ｜ <code>hermes status</code></td></tr>
+    <tr><td>会话恢复</td><td><code>hermes --continue</code> / <code>hermes --resume &lt;ID&gt;</code> / <code>hermes sessions list</code></td></tr>
+    <tr><td>加载技能</td><td><code>hermes -s posthog-analysis chat -q "..."</code> ｜ 会话内 <code>/skill</code></td></tr>
+    <tr><td>定时任务</td><td><code>hermes cron create "30 9 * * *"</code> / <code>list</code> / <code>run &lt;ID&gt;</code></td></tr>
+    <tr><td>结对编程</td><td><code>claude</code> / <code>codex</code>（先计划 → 分段实现 → 自己跑 → git diff）</td></tr>
+    <tr><td>阶段重置</td><td><kbd>/clear</kbd>（新上下文）｜ <code>git commit</code>（人类 checkpoint）｜ <code>/rollback</code></td></tr>
+    <tr><td>飞书</td><td><code>lark-cli doctor</code> → 文档/表格/审批/纪要全部走 CLI</td></tr>
+    <tr><td>查密钥泄漏</td><td><code>git log -S "sk-" --oneline</code> ｜ <code>grep -r "ak_" .</code></td></tr>
+    <tr><td>会话审计</td><td><code>hermes sessions list</code> / <code>session_search</code>（一切 AI 行为有痕）</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>💥 翻车现场 Top 10（全部来自真实事故，第 5 课上墙）</h3>
+  <table>
+    <tr><th>#</th><th>事故</th><th>教训 / 对策</th></tr>
+    <tr><td>1</td><td>子代理汇报"图片已上传"，实际 404</td><td>自报成功 ≠ 成功，要求给 URL/路径证据</td></tr>
+    <tr><td>2</td><td>公网域名直连网关被 WAF 403 半小时</td><td>一律 127.0.0.1:7421</td></tr>
+    <tr><td>3</td><td>AI 把新旧需求缝一起实现</td><td>改需求先 /clear</td></tr>
+    <tr><td>4</td><td>监控 cron 每次带时间戳，天天报警</td><td>脚本输出稳定，只报变化</td></tr>
+    <tr><td>5</td><td>要求"优化"没有指标，验收吵架</td><td>验收标准先量化</td></tr>
+    <tr><td>6</td><td>密钥进 git 历史，泄漏后只能轮换</td><td>密钥一辈子不进仓库，.env 权限 600</td></tr>
+    <tr><td>7</td><td>按 bot_name join 事件，数据对不上</td><td>按 bot_id join</td></tr>
+    <tr><td>8</td><td>旗舰模型跑 cron，成本翻 10 倍</td><td>批处理换便宜模型，budget 设告警</td></tr>
+    <tr><td>9</td><td>让 AI 一口气写 300 行，回来没法审</td><td>分段交付，每段可验证</td></tr>
+    <tr><td>10</td><td>新会话里 cron 不知道"刚才说的需求"</td><td>cron prompt 自包含，别依赖上下文</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🎓 教学运营建议（给 HR / 讲师）</h3>
+  <ul>
+    <li><b>轮值讲师</b>：10 期分给 5-6 位 senior，每人新录 5-10 分钟，复用素材由课程主编（可以是 Hermes 自己）把切片串联进统一模板。</li>
+    <li><b>场地设施</b>：每人一台能开终端和浏览器的 Mac；讲师投屏 + 录屏软件（演示即素材，一鱼两吃）。</li>
+    <li><b>打卡机制</b>：每期交付物贴到 Gitea Issue（Milestone 跟踪），漏交的在训练营群里艾特，不补交的毕业评审减分。</li>
+    <li><b>答疑渠道</b>：训练营飞书群常驻一个 Hermes 机器人接新手问题（把常见坑做成技能，机器人越用越聪明 —— 这就是 skill 沉淀的正循环）。</li>
+    <li><b>复盘沉淀</b>：10 期结束后，让 Hermes 汇总全部学员 Issue，产出《训练营 FAQ 手册 v1》并沉淀为技能，下期训练营直接复用。</li>
+    <li><b>内容更新</b>：课程配套仓库 <code>ai-workshop/training</code> 存课程模板与剧本，工具链升级时用 skill 更新一处，全营同步。</li>
+  </ul>
+</div>
+
+<div class="footer">AI Coding 微课堂 · 由 Hermes Agent 基于内部工具链与技能库生成 · 2026-08</div>
+</div>
+</body>
+</html>
