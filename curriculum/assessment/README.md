@@ -1,6 +1,6 @@
 # 测评任务仓库 · A / B / C 三个变体
 
-对应设计文档 `platform-design-v1.1.md` §4.2 的沙盒复合任务。
+对应设计文档 `docs/design/platform-design-v1.1.md` §4.2 的沙盒复合任务。
 判定依据在 `../rubric/rubric.md`。
 
 ## 内容

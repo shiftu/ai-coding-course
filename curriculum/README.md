@@ -1,6 +1,6 @@
 # curriculum · 课程内容仓库
 
-对应设计文档 `platform-design-v1.1.md` §5（课程组织）与 §7（内容保鲜）。
+对应设计文档 `docs/design/platform-design-v1.1.md` §5（课程组织）与 §7（内容保鲜）。
 
 ## 结构
 
