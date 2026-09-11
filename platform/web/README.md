@@ -45,10 +45,30 @@ python3 serve.py --dev-login
 | `/login` | 登录 | 飞书 SSO |
 | `/assess` | 测评（内嵌 web 终端） | `sandctl` 档案 + 容器状态 |
 | `/track` | 我的轨道 | `curriculum/tracks/*.yaml` + 档案里的模块记录 |
+| `/showcase` | 案例 | `curriculum/showcase/` 里脱敏后的精选录屏 + 讲解 |
 | `/me` | 能力雷达 | 最近一批**判过分的** `grade.json` |
-| `/evidence` | 我的证据 | `manifest.json` + `grade.json` 的证据链 |
+| `/evidence` | 我的证据 | `manifest.json` + `grade.json` 的证据链 + 录屏（网页内回放） |
 
 `/` 跳 `/track`。
+
+### 录屏在网页里放
+
+asciinema-player 打进了仓库（`static/asciinema-player/`，Apache-2.0，版本号在文件名里），
+同源加载。CSP 只为它开了一个口：`script-src 'self' 'wasm-unsafe-eval'` ——
+播放器的终端模拟是 Rust 编成 WebAssembly 的。**不开 unsafe-inline**，所以初始化
+脚本单独放在 `static/cast-player.js`，页面里只留 `<div data-cast="…">` 占位。
+升级播放器 = 换两个文件 + 改 `render.PLAYER_VERSION` 一处。
+
+同一个录屏 URL 两种用法：播放器 fetch 它（`Content-Disposition: inline`），
+链接加 `?dl=1` 才当附件下载。
+
+### 案例（showcase）是唯一一条从录屏到"所有人可见"的路
+
+`/showcase/<模块>/<目录>` 只读仓库里的 `curriculum/showcase/`，学员证据目录里的东西
+这条路一个字节都碰不到。进那个目录的文件都经过 `sandctl showcase` 脱敏 + git 审核
+（见 `platform/control/README.md`）。路径段先过字符集、再 resolve 确认在目录内，
+只放出 `session.cast`，`case.yaml` / `notes.md` 走页面渲染不直接下发。
+毕业生也能看案例 —— 案例是课程内容，不是采集。
 
 ## 几个不是随手做的决定
 
@@ -137,7 +157,5 @@ python3 live_probe.py   # 联机：建一个真容器，验反代能拿到 200 �
 - **飞书 SSO 没有对着真的飞书应用跑过**（手上没有 app_id/secret）。
   代码路径按官方 OAuth 2.0 授权码流程写的，`state` 走 cookie 双向校验防 CSRF，
   但「真的能登进去」这句话现在还没有证据支撑 —— 第一次配好应用之后必须实测。
-- 证据页的录屏只能下载后用 `asciinema play` 看，**没有网页播放器**：
-  播放器要外部 JS 库，而页面的 CSP 是 `default-src 'self'`。要网页播放就得把
-  播放器打进仓库，那是另一件事。
 - 没有管理员视图。按设计文档 §1 的取舍，管理台已砍，抽查走 Gitea + 飞书。
+  挑案例进 showcase 也是命令行（`sandctl showcase`），web 没有入口，这是有意的。

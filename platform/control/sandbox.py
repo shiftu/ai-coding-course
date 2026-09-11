@@ -172,8 +172,13 @@ def image_identity(student=None, image=IMAGE):
     }
 
 
-def create(student, *, mode, track, api_key, port, ttyd_user, ttyd_pass, image=IMAGE):
-    """起一个学员容器。ttyd 是 PID 1，每次连接 spawn 一个登录 shell。"""
+def create(student, *, mode, track, api_key, port, ttyd_user, ttyd_pass, image=IMAGE,
+           record=False):
+    """起一个学员容器。ttyd 是 PID 1，每次连接 spawn 一个登录 shell。
+
+    record=True 让课程模式也录屏（profile.d 里的守卫看 MICROCLASS_RECORD）。
+    测评模式不看这个开关，一律录。
+    """
     name = container_name(student)
     model = locked("MODEL", "charaboard/deepseek-v4-flash")
     # codex 单独换了模型（versions.lock 里 CODEX_MODEL，那里写了为什么）。
@@ -210,6 +215,8 @@ def create(student, *, mode, track, api_key, port, ttyd_user, ttyd_pass, image=I
     }
     if track:
         env["MICROCLASS_TRACK"] = track
+    if record:
+        env["MICROCLASS_RECORD"] = "1"
 
     args = ["run", "-d", "--name", name, "--restart", "unless-stopped",
             # 只绑回环。对外由 web 前端反代，容器自己绝不暴露到 0.0.0.0

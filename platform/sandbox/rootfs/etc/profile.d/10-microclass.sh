@@ -26,8 +26,10 @@ if [ -n "${MICROCLASS_GATEWAY:-}" ]; then
   microclass-config >/dev/null 2>&1 || true
 fi
 
-# 测评模式：进 shell 即开始录制（§4.3，仅测评沙盒录，课程期不录）
-if [ "${MICROCLASS_MODE:-}" = "assessment" ] && [ -z "${ASCIINEMA_REC:-}" ] && [ -t 0 ]; then
+# 进 shell 即开始录制：测评模式一律录（§4.3）；课程模式只在 sandctl create --record
+# 注入了 MICROCLASS_RECORD=1 时录 —— 录了才有东西可挑进精选案例库。
+if { [ "${MICROCLASS_MODE:-}" = "assessment" ] || [ "${MICROCLASS_RECORD:-}" = "1" ]; } \
+   && [ -z "${ASCIINEMA_REC:-}" ] && [ -t 0 ]; then
   exec microclass-record
 fi
 

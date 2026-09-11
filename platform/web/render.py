@@ -175,7 +175,7 @@ RADAR_LEGEND = """
 
 # ---- 页面骨架 --------------------------------------------------------------
 
-NAV = (("/assess", "测评"), ("/track", "我的轨道"),
+NAV = (("/assess", "测评"), ("/track", "我的轨道"), ("/showcase", "案例"),
        ("/me", "能力雷达"), ("/evidence", "我的证据"))
 
 
@@ -203,3 +203,24 @@ def page(title, body, *, student=None, active="", banner=""):
 
 def notice(text, kind="info"):
     return f'<div class="notice {kind}">{md(text)}</div>'
+
+
+# ---- 录屏播放器 --------------------------------------------------------------
+# asciinema-player 打进仓库（static/asciinema-player/，Apache-2.0），同源加载，
+# 页面的 CSP 不用为它开外站。版本号写在文件名里，升级 = 换文件 + 改这里一处。
+
+PLAYER_VERSION = "3.17.0"
+PLAYER_JS = f"/static/asciinema-player/asciinema-player-{PLAYER_VERSION}.min.js"
+PLAYER_CSS = f"/static/asciinema-player/asciinema-player-{PLAYER_VERSION}.css"
+
+
+def cast_assets():
+    """一页只放一次。脚本放正文末尾也行 —— cast-player.js 在 DOM 之后跑。"""
+    return (f'<link rel="stylesheet" href="{PLAYER_CSS}">'
+            f'<script src="{PLAYER_JS}"></script>'
+            f'<script src="/static/cast-player.js"></script>')
+
+
+def cast_box(url):
+    """一个播放器占位。真正的初始化在 cast-player.js 里（CSP 不允许内联脚本）。"""
+    return f'<div class="cast" data-cast="{esc(url)}"></div>'

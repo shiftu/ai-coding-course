@@ -275,8 +275,9 @@ def gather(student):
 
     casts = [f for f in os.listdir(ev) if f.endswith(".cast")] if os.path.isdir(ev) else []
     skipped = None
-    if not casts and rec.get("mode") != "assessment":
-        skipped = f"{rec.get('mode')} 模式登录不录屏（§4.3 只测评录）—— hermes / codex 里的操作没有任何记录可查"
+    if not casts and rec.get("mode") != "assessment" and not rec.get("record"):
+        skipped = (f"{rec.get('mode')} 模式登录不录屏（§4.3 只测评录；课程期要录得 "
+                   f"sandctl create --record）—— hermes / codex 里的操作没有任何记录可查")
     out["cast"] = {"items": cast_items(ev) if casts else [], "files": len(casts), "skipped": skipped}
     return out
 

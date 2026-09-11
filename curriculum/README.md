@@ -9,7 +9,8 @@ slices/       56 条切片，路径即分类：<维度>/<slug>.md
 tracks/       3 条轨道，每条是一份模块清单
 rubric/       测评判定表 + 打分器 + 判定器（见 rubric/rubric.md）
 assessment/   测评任务仓库（见 assessment/README.md）
-validate.py   切片/轨道一致性校验 + 机验执行
+showcase/     精选案例：脱敏后的录屏 + 讲解，按模块挂（见 showcase/README.md）
+validate.py   切片/轨道/案例一致性校验 + 机验执行
 ```
 
 ## 核心转换

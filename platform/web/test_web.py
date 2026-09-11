@@ -20,14 +20,17 @@ import urllib.request
 
 TMP = tempfile.mkdtemp(prefix="mc-web-test-")
 os.environ["MICROCLASS_STATE"] = TMP          # 必须在 import store 之前
+os.environ["MICROCLASS_SHOWCASE"] = os.path.join(TMP, "showcase")   # 不碰仓库里的真案例
 os.environ.pop("MICROCLASS_LARK_APP_ID", None)
 os.environ.pop("MICROCLASS_LARK_APP_SECRET", None)
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 import sitepath  # noqa: E402,F401
+import render    # noqa: E402
 import sandbox   # noqa: E402
 import serve     # noqa: E402
 import session   # noqa: E402
+import showcase  # noqa: E402
 import store     # noqa: E402
 
 FAILS = []
@@ -101,6 +104,18 @@ def seed():
     (h / "manifest.json").write_text(json.dumps(MANIFEST, ensure_ascii=False), encoding="utf-8")
     (pathlib.Path(store.evidence_dir("stu-ok")) / "session.cast").write_text(
         '{"version":2,"width":140,"height":40}\n', encoding="utf-8")
+
+    # 一个已入库的精选案例（挂在 m0-env 上，stu-ok 的轨道 A 里有这个模块）
+    c = showcase.SHOWCASE_DIR / "m0-env" / "good-doctor-first"
+    c.mkdir(parents=True)
+    (c / showcase.CASE_YAML).write_text(
+        "module: m0-env\nverdict: good\ntitle: 先跑体检再动手\nsource: teacher\npicked_by: panda\n",
+        encoding="utf-8")
+    (c / showcase.CAST_NAME).write_text(
+        '{"version":2,"width":120,"height":32}\n[0.1,"o","root@sandbox:~# microclass-doctor\\r\\n"]\n',
+        encoding="utf-8")
+    (c / showcase.NOTES_MD).write_text("## 看什么\n\n进沙盒第一件事是 `microclass-doctor`。\n",
+                                       encoding="utf-8")
 
 
 # ---- HTTP 小工具 ----------------------------------------------------------
@@ -188,6 +203,50 @@ def main():
         forged = "mc_session=" + "stu-grad|9999999999|" + "0" * 64
         st, hd, _ = req(base + "/track", cookie=forged)
         check("自己编的签名无效", st == 302 and hd.get("Location") == "/login")
+
+        print("\n== 录屏在网页里放，不再要求本机装 asciinema ==")
+        st, hd, body = req(base + "/evidence", cookie=cookie)
+        check("证据页内嵌播放器占位", 'data-cast="/evidence/cast/session.cast"' in body)
+        check("证据页引入了打进仓库的播放器", render.PLAYER_JS in body and "/static/cast-player.js" in body)
+        check("页面没有内联脚本（CSP 不允许）", "<script>" not in body and "onload=" not in body)
+        csp = hd.get("Content-Security-Policy", "")
+        check("CSP 只为 wasm 开口，不开 unsafe-inline / unsafe-eval",
+              "'wasm-unsafe-eval'" in csp and "unsafe-inline" not in csp and "'unsafe-eval'" not in csp, csp)
+        st, hd, _ = req(base + render.PLAYER_JS)
+        check("播放器 js 同源可取（不需要登录）", st == 200 and hd.get("Content-Type", "").startswith("text/javascript"), str(st))
+        st, hd, _ = req(base + render.PLAYER_CSS)
+        check("播放器 css 同源可取", st == 200 and hd.get("Content-Type", "").startswith("text/css"), str(st))
+        st, _, _ = req(base + "/static/asciinema-player/LICENSE")
+        check("随包的 LICENSE 也能看", st == 200, str(st))
+        for evil in ("../serve.py", "..%2fserve.py", "../../control/store.py", "cast-player.js/../../serve.py"):
+            st, _, _ = req(base + "/static/" + evil)
+            check(f"static 拒绝 {evil}", st == 404, str(st))
+        st, hd, _ = req(base + "/evidence/cast/session.cast", cookie=cookie)
+        check("播放器取录屏是 inline", (hd.get("Content-Disposition") or "").startswith("inline"))
+        st, hd, _ = req(base + "/evidence/cast/session.cast?dl=1", cookie=cookie)
+        check("加 ?dl 才当附件下载", (hd.get("Content-Disposition") or "").startswith("attachment"))
+
+        print("\n== 精选案例：所有学员可见，只读仓库目录 ==")
+        st, _, body = req(base + "/track", cookie=cookie)
+        check("轨道页模块下挂了案例入口", st == 200 and "/showcase/m0-env/good-doctor-first" in body and "看案例" in body)
+        st, _, body = req(base + "/showcase", cookie=cookie)
+        check("案例索引按模块列出", st == 200 and "先跑体检再动手" in body and "好例" in body)
+        st, _, body = req(base + "/showcase/m0-env/good-doctor-first", cookie=cookie)
+        check("案例页有播放器 + 讲解 + 来源", st == 200
+              and 'data-cast="/showcase/m0-env/good-doctor-first/session.cast"' in body
+              and "microclass-doctor" in body and "老师录的" in body, str(st))
+        st, hd, body = req(base + "/showcase/m0-env/good-doctor-first/session.cast", cookie=cookie)
+        check("案例录屏可取", st == 200 and body.startswith('{"version":2'), str(st))
+        st, _, _ = req(base + "/showcase/m0-env/good-doctor-first/session.cast")
+        check("未登录取不到案例录屏", st == 302, str(st))
+        for evil in ("/showcase/../m0-env/good-doctor-first", "/showcase/m0-env/..%2f..%2fgood-doctor-first",
+                     "/showcase/m0-env/good-doctor-first/case.yaml", "/showcase/m0-env/good-doctor-first/notes.md",
+                     "/showcase/m0-env/nope"):
+            st, _, _ = req(base + evil, cookie=cookie)
+            check(f"拒绝 {evil}", st == 404, str(st))
+        # 毕业生也能看案例：案例不是采集，是课程内容
+        st, _, body = req(base + "/showcase", cookie="mc_session=" + session.issue("stu-grad"))
+        check("毕业生仍能看案例", st == 200 and "先跑体检再动手" in body)
 
         print("\n== 越权与路径穿越 ==")
         st, _, _ = req(base + "/evidence/cast/session.cast", cookie=cookie)

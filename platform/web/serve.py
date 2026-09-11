@@ -11,6 +11,7 @@
 import argparse
 import http.server
 import os
+import pathlib
 import socketserver
 import sys
 import urllib.parse
@@ -23,11 +24,18 @@ import pages
 import render
 import sandbox
 import session
+import showcase
 import store
 import ttyproxy
 
 BASE_PATH = sandbox.TTYD_BASE_PATH        # 与容器侧同一个常量，不各写一份
 STATE_COOKIE = "mc_oauth_state"
+
+# 静态文件只从这一个目录出，且只认这几种后缀 —— 播放器的 js/css 和它的 LICENSE。
+STATIC_DIR = pathlib.Path(__file__).resolve().parent / "static"
+STATIC_TYPES = {".js": "text/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+                "": "text/plain; charset=utf-8"}          # LICENSE 没有后缀
 
 CSS = """
 :root{--fg:#1a1a1a;--mut:#6b6b6b;--line:#e2e2e2;--bg:#fbfbfa;--acc:#1f6feb;
@@ -107,6 +115,20 @@ td.lv{font-weight:700;color:var(--acc)}td.lv.missing{color:#c9a227}
 .seq{color:var(--mut);font-size:12px;margin-right:6px}
 .uuid{color:var(--mut);font-size:11px;margin-left:6px}
 .debrief{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin:18px 0}
+/* 录屏播放器与案例 */
+.castbox{margin:14px 0 22px}
+.castname{margin:0 0 6px;font-size:13px}
+.cast{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#121314}
+.cast .ap-wrapper{margin:0}
+ul.cases{list-style:none;padding:0;margin:4px 0 10px;font-size:14px}
+ul.cases li{margin:4px 0}
+ul.cases a{text-decoration:none;color:var(--fg)}ul.cases a:hover{text-decoration:underline}
+p.cases{margin:8px 0 0;font-size:14px}
+.vd{display:inline-block;min-width:34px;margin-right:8px;padding:0 6px;border-radius:9px;
+font-size:11px;font-weight:700;text-align:center;color:#fff;background:var(--mut)}
+.vd.good{background:var(--ok)}.vd.bad{background:var(--err)}
+.casemeta{color:var(--mut);font-size:13px;margin:0 0 12px}
+.notes{background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 16px;margin:18px 0}
 """
 
 
@@ -130,9 +152,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(raw)))
-        # 页面里没有外链资源，CSP 可以收到最紧；frame-src 只留自己（终端 iframe）
+        # 页面里没有外链资源，CSP 可以收到最紧；frame-src 只留自己（终端 iframe）。
+        # 'wasm-unsafe-eval' 只放行 WebAssembly（录屏播放器的终端模拟是 Rust 编的），
+        # **不放行 eval / 内联脚本** —— 播放器的初始化因此单独放在 static/cast-player.js。
         self.send_header("Content-Security-Policy",
-                         "default-src 'self'; frame-src 'self'; form-action 'self'")
+                         "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "
+                         "frame-src 'self'; form-action 'self'")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "same-origin")
         for k, v in extra:
@@ -176,6 +201,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/static/style.css":
             return self._send(200, CSS, "text/css; charset=utf-8",
                               (("Cache-Control", "max-age=300"),))
+        if path.startswith("/static/"):
+            return self._static(path[len("/static/"):])
 
         # 终端反代：路径前缀与容器里的 ttyd base-path 一致，逐字节转发
         if path == BASE_PATH or path.startswith(BASE_PATH + "/"):
@@ -213,7 +240,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/evidence":
             return self._send(200, pages.evidence(rec))
         if path.startswith("/evidence/cast/"):
-            return self._cast(rec, path[len("/evidence/cast/"):])
+            return self._cast(rec, path[len("/evidence/cast/"):], download="dl" in q)
+        if path == "/showcase":
+            return self._send(200, pages.showcase_index(rec))
+        if path.startswith("/showcase/"):
+            return self._showcase(rec, path[len("/showcase/"):].split("/"), download="dl" in q)
 
         return self._send(404, render.page("找不到这一页", "<p>路径不对。</p>",
                                            student=rec["student"]))
@@ -303,7 +334,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except ttyproxy.ProxyError as e:
             self._send(502, str(e), "text/plain; charset=utf-8")
 
-    def _cast(self, rec, name):
+    def _cast(self, rec, name, *, download=False):
         # 先解码：不解码的话合法文件名里的百分号编码取不出文件。
         # 下面这道分隔符检查是**第二层**，不是唯一一层 —— 变异测试里把它整条删掉，
         # 测试仍然全绿，因为真正拦住越权的是再下面那个白名单。留着它是纵深防御，
@@ -315,10 +346,46 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # 上面那道检查是第二层，不是唯一一层。
         for c in data.cast_files(rec["student"]):
             if c.name == name:
-                return self._send(200, c.read_bytes(), "application/x-asciicast",
-                                  (("Content-Disposition",
-                                    f'attachment; filename="{name}"'),))
+                return self._send_cast(c, name, download)
         return self._send(404, "没有这个录屏", "text/plain; charset=utf-8")
+
+    def _send_cast(self, path, name, download):
+        # 同一个 URL 两种用法：播放器 fetch 它（inline），链接加 ?dl 才当附件下载。
+        disp = "attachment" if download else "inline"
+        return self._send(200, path.read_bytes(), "application/x-asciicast",
+                          (("Content-Disposition", f'{disp}; filename="{name}"'),))
+
+    def _static(self, rel):
+        """static/ 目录下的文件。路径先规范化再比对前缀，`..` 进不来。"""
+        target = (STATIC_DIR / urllib.parse.unquote(rel)).resolve()
+        if STATIC_DIR not in target.parents or not target.is_file():
+            return self._send(404, "没有这个文件", "text/plain; charset=utf-8")
+        ctype = STATIC_TYPES.get(target.suffix)
+        if ctype is None:
+            return self._send(404, "没有这个文件", "text/plain; charset=utf-8")
+        return self._send(200, target.read_bytes(), ctype,
+                          (("Cache-Control", "max-age=86400"),))
+
+    def _showcase(self, rec, parts, *, download=False):
+        """/showcase/<模块>/<目录>[/session.cast]。
+
+        这是**唯一**一条从录屏到「所有学员可见」的路，它只读仓库里的
+        curriculum/showcase/ —— 进去的文件都经过 sandctl showcase 脱敏和 git 审核。
+        学员证据目录里的东西这里一个字节都碰不到。
+        """
+        if len(parts) == 2:
+            case = showcase.load_case(*parts)
+            if not case:
+                return self._send(404, render.page("没有这个案例", "<p>案例不存在。</p>",
+                                                   student=rec["student"], active="/showcase"))
+            return self._send(200, pages.showcase_case(rec, case))
+        if len(parts) == 3 and parts[2] == showcase.CAST_NAME:
+            case = showcase.load_case(parts[0], parts[1])
+            if not case:
+                return self._send(404, "没有这个案例", "text/plain; charset=utf-8")
+            return self._send_cast(case["dir"] / showcase.CAST_NAME,
+                                   f"{parts[0]}-{parts[1]}.cast", download)
+        return self._send(404, "路径不对", "text/plain; charset=utf-8")
 
 
 def _ok_id(sid):

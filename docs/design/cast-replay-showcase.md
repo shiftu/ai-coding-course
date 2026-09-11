@@ -94,15 +94,21 @@ picked_by: panda            # 谁挑的（管理员），可追溯
 
 ## 4. 顺序与工作量
 
-| 步 | 内容 | 依赖 | 估计 |
+| 步 | 内容 | 依赖 | 状态（2026-09-10） |
 |---|---|---|---|
-| 1 | 内嵌播放器（3.1） | 无 | 半天 |
-| 2 | `redact.py` + 测试 | 无 | 半天 |
-| 3 | `sandctl showcase` + `validate.py` 校验 | 2 | 半天 |
-| 4 | 轨道页案例入口 + 案例页 | 1、3 | 1 天 |
-| 5 | 课程期 `--record`（3.4） | 无 | 1 小时 |
+| 1 | 内嵌播放器（3.1） | 无 | 完成：`platform/web/static/asciinema-player/` 3.17.0，CSP 加 `'wasm-unsafe-eval'` |
+| 2 | `redact.py` + 测试 | 无 | 完成：`platform/control/redact.py`，9 条用例 |
+| 3 | `sandctl showcase` + `validate.py` 校验 | 2 | 完成：`platform/control/showcase.py`，规则一处、两边共用 |
+| 4 | 轨道页案例入口 + 案例页 | 1、3 | 完成：`/showcase`、`/showcase/<模块>/<目录>`，导航加了「案例」 |
+| 5 | 课程期 `--record`（3.4） | 无 | 完成：`sandctl create --record` → `MICROCLASS_RECORD=1`，需重建镜像生效 |
 
-第 1 步不动任何数据结构，先做。第 5 步最简单但最后做：没有回放和精选，多录只是多占盘。
+实现时和 3.x 的两处出入：
+
+- 3.1 说"CSP 不改"。实际播放器的终端模拟是 WebAssembly，`script-src 'self'` 会拦
+  `WebAssembly.instantiate`，加了 `'wasm-unsafe-eval'`。它只放行 wasm，不放行 eval /
+  内联脚本，所以初始化仍然单独成文件。
+- 3.2 的入库命令多了 `--slug`（目录名）和 `--source`（老师/学员）。中文标题没法自动变成
+  目录名，让人给。
 
 ## 5. 已知限制
 

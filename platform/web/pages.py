@@ -7,7 +7,11 @@ import sitepath  # noqa: F401  先把 control/ 挂进 sys.path
 import data
 import render
 import sandbox
+import showcase
 from render import esc, md, page, radar_svg
+
+VERDICT_TEXT = {"good": "好例", "bad": "反例"}
+SOURCE_TEXT = {"teacher": "老师录的", "student": "学员录的"}
 
 
 # ---- 1. 登录 --------------------------------------------------------------
@@ -96,6 +100,7 @@ def track(rec):
             student=student, active="/track")
 
     pr = data.progress(rec, trk)
+    cases = showcase.list_cases()
     rows = []
     for m in pr["rows"]:
         slices = "".join(
@@ -114,7 +119,8 @@ def track(rec):
             f'<summary><span class="state">{esc(m["state_text"])}</span>'
             f'<b>{esc(m.get("name", m["id"]))}</b> '
             f'<span class="tag">{esc(m.get("kind", ""))}</span>{at}</summary>'
-            f'{exempt}<ul class="slices">{slices}</ul></details>')
+            f'{exempt}{_case_links(cases.get(m["id"]) or [])}'
+            f'<ul class="slices">{slices}</ul></details>')
 
     head = md(
         f"**轨道 {tid} · {trk.get('name', '')}** —— {trk.get('enter_when', '')}\n\n"
@@ -125,6 +131,18 @@ def track(rec):
         "推断进度。推断出来的进度会让人以为自己学过了。", "info")
     return page("我的轨道", head + note + "".join(rows),
                 student=student, active="/track")
+
+
+def _case_links(cases):
+    """模块下挂的精选案例：好例在前。没有就一个字都不显示 —— 空列表不是内容。"""
+    if not cases:
+        return ""
+    lis = "".join(
+        f'<li><a href="/showcase/{esc(c["module"])}/{esc(c["slug"])}">'
+        f'<span class="vd {esc(c.get("verdict"))}">{esc(VERDICT_TEXT.get(c.get("verdict"), "?"))}</span>'
+        f'{esc(c.get("title"))}</a></li>'
+        for c in cases)
+    return f'<p class="cases"><strong>看案例</strong></p><ul class="cases">{lis}</ul>'
 
 
 # ---- 4. 能力雷达 ----------------------------------------------------------
@@ -255,11 +273,18 @@ def evidence(rec):
 
     casts = data.cast_files(student)
     if casts:
-        lis = "".join(
-            f'<li><a href="/evidence/cast/{esc(c.name)}">{esc(c.name)}</a> '
-            f'（{c.stat().st_size} 字节）—— 下载后 <code>asciinema play {esc(c.name)}</code></li>'
+        players = "".join(
+            f'<div class="castbox"><p class="castname"><code>{esc(c.name)}</code> '
+            f'<span class="muted">{max(1, c.stat().st_size // 1024)} KB</span> · '
+            f'<a href="/evidence/cast/{esc(c.name)}?dl=1">下载</a></p>'
+            + render.cast_box(f"/evidence/cast/{c.name}")
+            + "</div>"
             for c in casts)
-        blocks.append("<h2>录屏</h2><ul>" + lis + "</ul>")
+        blocks.append(
+            "<h2>录屏</h2>"
+            '<p class="hint">这是你在测评沙盒里的整段终端。空格暂停，←/→ 跳 5 秒，'
+            '暂停后可以直接选中复制里面的文字。长于 3 秒的停顿已经压掉。</p>'
+            + players + render.cast_assets())
 
     hs = data.harvests(student)
     if hs:
@@ -269,3 +294,52 @@ def evidence(rec):
     if not blocks:
         blocks = [render.notice("还没有采到任何证据。", "info")]
     return page("我的证据", banner + "".join(blocks), student=student, active="/evidence")
+
+
+# ---- 6. 精选案例 ----------------------------------------------------------
+
+def showcase_index(rec):
+    """所有案例，按模块分组。这里的东西全部经过脱敏 + git 审核，所有学员可见。"""
+    student = rec["student"]
+    grouped = showcase.list_cases()
+    mods = showcase.all_modules()
+    head = md(
+        "这些录屏来自真实的测评沙盒 —— 有的是老师录的，有的是学员录的，"
+        "**好例和反例都收**。每一段都经过脱敏，并由挑选人从头看过、写了讲解。\n\n"
+        "回放只显示做了什么；为什么这么做，看每个案例下面的讲解。")
+    if not grouped:
+        return page("案例", head + render.notice(
+            "还没有入库的案例。管理员用 `sandctl showcase` 挑选、脱敏、写讲解后提交，这里就有了。",
+            "info"), student=student, active="/showcase")
+    blocks = []
+    for mid, cases in grouped.items():
+        name = (mods.get(mid) or {}).get("name") or mid
+        blocks.append(f'<div class="mod"><p><b>{esc(name)}</b> <code>{esc(mid)}</code></p>'
+                      + _case_links(cases).replace('<p class="cases"><strong>看案例</strong></p>', "")
+                      + "</div>")
+    return page("案例", head + "".join(blocks), student=student, active="/showcase")
+
+
+def showcase_case(rec, case):
+    student = rec["student"]
+    mods = showcase.all_modules()
+    mod = mods.get(case["module"]) or {}
+    vd = case.get("verdict")
+    meta = (f'<p class="casemeta">'
+            f'<span class="vd {esc(vd)}">{esc(VERDICT_TEXT.get(vd, "?"))}</span>'
+            f'<a href="/track">{esc(mod.get("name") or case["module"])}</a> '
+            f'<code>{esc(case["module"])}</code> · {esc(SOURCE_TEXT.get(case.get("source"), "?"))} · '
+            f'挑选人 {esc(case.get("picked_by"))} · '
+            f'<a href="/showcase/{esc(case["module"])}/{esc(case["slug"])}/{showcase.CAST_NAME}?dl=1">下载录屏</a>'
+            f'</p>')
+    if case.get("has_cast"):
+        player = render.cast_box(f"/showcase/{case['module']}/{case['slug']}/{showcase.CAST_NAME}")
+        player += render.cast_assets()
+    else:
+        player = render.notice("这个案例的录屏文件缺失。内容仓库的问题，请管理员看一眼。", "err")
+    notes = md(case.get("notes") or "") or render.notice("这个案例还没有讲解。", "warn")
+    body = (meta + player
+            + '<p class="hint">空格暂停，←/→ 跳 5 秒，暂停后可以选中复制终端里的文字。</p>'
+            + f'<div class="notes">{notes}</div>'
+            + '<p class="muted"><a href="/showcase">← 全部案例</a></p>')
+    return page(case.get("title") or case["slug"], body, student=student, active="/showcase")

@@ -169,7 +169,8 @@ fatal: detected dubious ownership in repository at '/workspace/task-a'
 函数就此消失。学员在录屏里敲 `card` 得到 command not found，而 banner
 还在告诉他"忘了命令就敲 card"。
 
-为什么拖到现在才发现：课程模式不录屏，`card` 一直是好的；只有测评模式坏。
+为什么拖到现在才发现：课程模式默认不录屏（`sandctl create --record` 才录），
+`card` 一直是好的；只有测评模式坏。
 为什么工具没跟着坏：它们在 PATH 上，而 PATH 来自 Docker ENV ——
 非登录 shell 反而**不会**被 `/etc/profile` 重置。
 

@@ -109,7 +109,7 @@ SSO 成功后拿 open_id 反查档案，查不到就把 open_id 显示给用户�
 |---|---|---|
 | ① | 卷里 `.claude/projects/**/*.jsonl` | 只有 claude-code |
 | ② | 卷里 `.codex/sessions/**/*.jsonl` | 只有 codex |
-| ③ | `/evidence/*.cast` | 覆盖终端里的一切（含 hermes），但 §4.3 **只在测评模式录** —— course 模式这一路天然是空的 |
+| ③ | `/evidence/*.cast` | 覆盖终端里的一切（含 hermes），但 §4.3 **只在测评模式录** —— course 模式要 `create --record` 才录，否则这一路天然是空的 |
 
 录屏里「学员敲的」和「程序打印的」分开数：提示符（`root@…#`、`>`、`hermes>`）后面的算敲，
 其余算输出。分开是因为 `lark-cli --help` 里也有 profile 和 skills 两个词 ——
@@ -120,6 +120,36 @@ SSO 成功后拿 open_id 反查档案，查不到就把 open_id 显示给用户�
 `exempt_test` 一字不差）。`test_module_evidence.py` 钉住了「三条轨道的每个模块
 都登记过」—— 新加模块忘了登记，测试挂，而不是验收时静默无命中。
 读卷（① ②）是采集，毕业后按 §8 不再做；录屏是课程期内已落盘的既有证据，照旧可看。
+
+## showcase —— 把一段录屏挑进精选案例库
+
+设计见 `docs/design/cast-replay-showcase.md`。学员在"我的证据"页只能看**自己**的录屏；
+要让好例和反例给所有人看，走这一条命令，也**只有**这一条：
+
+```
+./sandctl showcase stu-x session.cast --module m3-hermes --as good \
+    --title "新会话验证记忆生效" --slug memory-verify --by panda [--source teacher]
+```
+
+它做四件事：从学员证据目录读源文件 → `redact.py` 脱敏 → 写到
+`curriculum/showcase/<模块>/<good|bad>-<slug>/`（`session.cast` + `case.yaml` + `notes.md` 模板）
+→ 打印接下来人要做的三步。**不 commit。**
+
+三道闸，缺一不可：
+
+1. 只有管理员能跑（web 没有入口）；
+2. 副本经脱敏，原文件不动 —— 脱敏器只认已知模式（密钥前缀、学员 ID、网关地址、
+   飞书 open_id），一个密钥被终端拆成两段输出它就看不见，所以**挑的人必须从头看一遍**。
+   `notes.md` 模板第一行就是这句，`validate.py` 会拦下还带着这句的案例；
+3. 走 git 提交，PR 就是审核。`cd curriculum && python3 validate.py` 顺手校验
+   `case.yaml` 五个字段、模块存在、录屏是可回放的 v2、讲解非空。
+
+老师不单独录"示范"：老师就是一个测评沙盒账号（`create teacher-x --mode assessment`），
+录出来的东西和学员一样走这条命令，只是 `--source teacher`。理由：少一套数据结构、
+少一个入口，而且老师录到的环境和学员看到的保证一致（上面那次 `-il` 事故的教训）。
+
+课程模式默认不录屏。要收课程期的案例，开号时加 `--record`：
+`create stu-y --mode course --track B --record`。测评模式不看这个开关，一律录。
 
 ## ttyd 挂在 /t 下，不是根路径
 

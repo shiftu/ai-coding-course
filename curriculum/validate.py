@@ -10,6 +10,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).parent
 SLICES, TRACKS = ROOT / "slices", ROOT / "tracks"
+SHOWCASE = ROOT / "showcase"
+_CONTROL = ROOT.parent / "platform" / "control"
 
 DIMENSIONS = {"工具操作", "需求表达", "质量验证", "自动化编排", "safety-gate"}
 LEVELS = {"L0->L1", "L1->L2", "L2->L3", "S1", "S2", "S3"}
@@ -151,14 +153,48 @@ def main():
     for sid in sorted(set(metas) - referenced):
         warn(f"孤儿切片（没有任何轨道引用）：{sid}")
 
+    # ---- 精选案例：结构规则在 platform/control/showcase.py，这里只跑一遍 ----
+    n_cases = check_showcase()
+
     print(f"\n  切片总数 {len(metas)}，被引用 {len(referenced)}，带机验 "
-          f"{sum(1 for m in metas.values() if m['verify'])}")
+          f"{sum(1 for m in metas.values() if m['verify'])}，精选案例 {n_cases}")
     for w in warnings:
         print(f"  ⚠ {w}")
     for e in errors:
         print(f"  ✗ {e}")
     print(f"\n  {'校验通过' if not errors else str(len(errors)) + ' 处错误'}")
     return 1 if errors else 0
+
+
+def check_showcase():
+    """curriculum/showcase/<模块>/<verdict-slug>/ 每个案例过一遍 showcase.check_case。
+
+    规则只写在 showcase.py 一处（sandctl showcase 入库时也用它），这里不另抄一份。
+    目录不存在 = 还没有案例，不是错。
+    """
+    if not SHOWCASE.is_dir():
+        return 0
+    if str(_CONTROL) not in sys.path:
+        sys.path.insert(0, str(_CONTROL))
+    import showcase  # noqa: E402  平台侧的案例读写器
+    known = set(showcase.all_modules())
+    n = 0
+    for mdir in sorted(p for p in SHOWCASE.iterdir() if p.is_dir()):
+        for cdir in sorted(p for p in mdir.iterdir() if p.is_dir()):
+            n += 1
+            rel = f"showcase/{mdir.name}/{cdir.name}"
+            yml = cdir / showcase.CASE_YAML
+            if not yml.is_file():
+                err(f"{rel}: 缺 {showcase.CASE_YAML}")
+                continue
+            try:
+                meta = showcase.parse_case(yml)
+            except showcase.ShowcaseError as e:
+                err(str(e))
+                continue
+            for problem in showcase.check_case(meta, cdir, known_modules=known):
+                err(f"{rel}: {problem}")
+    return n
 
 
 def run_verify(target_env="container"):

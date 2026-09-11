@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sandctl —— 学员沙盒生命周期。
 
-    sandctl create  <学员> [--mode assessment|course] [--track A|B|C]
+    sandctl create  <学员> [--mode assessment|course] [--track A|B|C] [--record]
     sandctl list
     sandctl info    <学员>
     sandctl url     <学员>
@@ -11,6 +11,8 @@
     sandctl bind    <学员> --lark-open-id <id>   # 绑飞书身份，web 前端靠它认人
     sandctl module  <学员> <模块id> --state exempt|pass|reset
     sandctl module-evidence <学员> [模块id] [--limit N]   # 验收前先看有没有线索
+    sandctl showcase <学员> <录屏文件名> --module <id> --as good|bad --title "…" --slug <s> --by <管理员>
+                                       # 脱敏后入精选案例库（不 commit，留给人审）
     sandctl graduate  <学员>          # §8 隐私开关：吊销 key，采集立即停止
     sandctl seed      <学员> [--force]
     sandctl image-audit [--fix]        # 核对档案里的镜像身份 vs 容器实际在跑的
@@ -29,6 +31,7 @@ import gateway
 import harvest
 import module_evidence
 import sandbox
+import showcase
 import store
 
 _GRADE_PY = pathlib.Path(__file__).resolve().parents[2] / "curriculum" / "rubric" / "grade.py"
@@ -72,7 +75,7 @@ def cmd_create(a):
 
     try:
         sandbox.create(student, mode=a.mode, track=a.track, api_key=token,
-                       port=port, ttyd_user=student, ttyd_pass=password)
+                       port=port, ttyd_user=student, ttyd_pass=password, record=a.record)
     except Exception:
         gateway.revoke_key(key_id)          # 容器没起来就别留着一把活 key
         store.drop_key(student)
@@ -83,6 +86,9 @@ def cmd_create(a):
         "created_at": store.now(),
         "mode": a.mode,
         "track": a.track,
+        # 课程期录屏开关（测评模式本来就录，这个字段只对 course 有意义）。
+        # 记进档案是为了 module-evidence 能说清「这一路为什么是空的」。
+        "record": bool(a.record) or a.mode == "assessment",
         **{k: v for k, v in sandbox.image_identity().items() if k in _IMAGE_FIELDS},
         "container": sandbox.container_name(student),
         "volume": sandbox.volume_name(student),
@@ -275,6 +281,32 @@ def cmd_module_evidence(a):
         print(module_evidence.render_overview(a.student, mods, sources))
 
 
+def cmd_showcase(a):
+    """把一段录屏挑进精选案例库：脱敏副本 + case.yaml + notes.md 模板。
+
+    这是**唯一**一条从学员证据到「所有学员可见」的路。它只做到落盘，
+    **不 commit** —— 挑的人得先从头看一遍录屏（脱敏器只认已知模式），
+    把 notes.md 写好，再走 git 提交；PR 就是审核。
+
+    老师不单独录示范：老师就是一个测评沙盒账号，录出来的东西和学员一样
+    走这条命令，只是 --source teacher。
+    """
+    hosts = [sandbox.gateway_url()]
+    dst, counts = showcase.add_case(
+        a.student, a.cast, module=a.module, verdict=getattr(a, "as"), title=a.title,
+        slug=a.slug, by=a.by, source=a.source, hosts=hosts)
+    rel = os.path.relpath(dst, os.getcwd())
+    print(f"已入库：{rel}/")
+    print(f"  脱敏替换：" + ("、".join(f"{k} {n} 处" for k, n in sorted(counts.items())) or "0 处"))
+    print(f"  原文件没有动：{store.evidence_dir(a.student)}/{a.cast}")
+    print()
+    print("接下来（人做，命令不替你做）：")
+    print(f"  1. 从头看一遍 {rel}/{showcase.CAST_NAME} —— 脱敏器只认已知模式，")
+    print("     一个密钥被终端拆成两段输出它就看不见；看到漏网的直接改 .cast 文本")
+    print(f"  2. 写 {rel}/{showcase.NOTES_MD}，删掉模板里那段复核提示")
+    print("  3. cd curriculum && python3 validate.py   # 过了再 git add / 提 PR")
+
+
 def cmd_seed(a):
     """补投测评任务。容器还活着、只是少了题的时候用它 —— 不必重建容器。"""
     rec = store.load(a.student)
@@ -417,6 +449,18 @@ def main(argv=None):
     c = with_student("create", cmd_create, "开一个学员沙盒")
     c.add_argument("--mode", choices=MODES, default="course")
     c.add_argument("--track", choices=TRACKS, default=None)
+    c.add_argument("--record", action="store_true",
+                   help="课程模式也录屏（测评模式本来就录）。录了才有东西可挑进精选案例")
+
+    sc = with_student("showcase", cmd_showcase, "把一段录屏脱敏后挑进精选案例库（不 commit）")
+    sc.add_argument("cast", help="学员证据目录里的文件名，如 session.cast")
+    sc.add_argument("--module", required=True, help="挂在哪个模块，如 m3-hermes")
+    sc.add_argument("--as", choices=showcase.VERDICTS, required=True, help="good 好例 / bad 反例")
+    sc.add_argument("--title", required=True, help="案例标题（中文即可）")
+    sc.add_argument("--slug", required=True, help="目录名用，小写字母/数字/连字符")
+    sc.add_argument("--by", required=True, help="谁挑的，进 case.yaml 备查")
+    sc.add_argument("--source", choices=showcase.SOURCES, default="student",
+                    help="录的人是老师还是学员（不写具体是谁）")
 
     b = with_student("bind", cmd_bind, "绑飞书 open_id（web 前端认人靠它）")
     b.add_argument("--lark-open-id", required=True)
@@ -460,7 +504,7 @@ def main(argv=None):
     try:
         a.fn(a)
     except (store.StoreError, sandbox.SandboxError, gateway.GatewayError,
-            module_evidence.ModuleEvidenceError) as e:
+            module_evidence.ModuleEvidenceError, showcase.ShowcaseError) as e:
         _die(str(e))
 
 
