@@ -6,6 +6,7 @@
 ./sandctl bind   <学员> --lark-open-id <飞书 open_id>
 ./sandctl module <学员> <模块id> --state exempt|pass|reset [--by 谁判的]
 ./sandctl module-evidence <学员> [模块id] [--limit N]   # 验收前先看线索（只读）
+./sandctl capacity [--apply-limits]                     # 这台机器还能开多少人
 python3 e2e.py          # 端到端验收，25 项
 python3 test_module_evidence.py   # module-evidence 的离线测试
 ```
@@ -160,10 +161,42 @@ SSO 成功后拿 open_id 反查档案，查不到就把 open_id 显示给用户�
 老容器仍挂在老前缀上，前端检查到对不上就直说「要重建」，而不是给白屏。
 重建：`sandctl destroy <学员> --keep-volume` 再 `sandctl create <学员>`，卷不会丢。
 
+## capacity —— 这台机器还能开多少人
+
+```
+./sandctl capacity                        # 只读
+./sandctl capacity --mem-limit 3g         # what-if：新开的容器按 3g 算，不动任何东西
+./sandctl capacity --apply-limits         # 给加上限之前开出来的老容器补资源上限
+./sandctl create stu-y --mem-limit 3g     # 单独给某人开大（默认 2g）
+```
+
+设计文档里「64G 撑 30 并发」是拍脑袋的。这条命令给两条可复算的线：
+
+- **硬上限** = 已开容器各自的上限累加，剩余预算再除以「新开的每个多大」。所有人同时吃满也拖不垮宿主机的人数。
+  不是「常量 × 人数」：有人用 `--mem-limit` 单独开大之后两种算法就对不上了，报告读的是每个容器
+  `HostConfig.Memory` 的地面真相。没上限的老容器按新开的值记。
+- **实测余量** = (总内存 − 预留 − 已用) / 活跃容器平均占用。按现在真实用法还能塞几个，乐观值。
+
+`--mem-limit` 不给就是 `sandbox.MEM_LIMIT`（2g）。只认 docker 写法（`3g`、`512m`、纯字节数），
+写错在动任何资源之前就报错。进程数上限不开口：512 已经远高于实测 145，没有调它的理由。
+
+数据全来自 `docker info` / `docker stats` / `docker system df`，没有估算参数写死在别处。
+CPU 不算：agent 大部分时间在等 LLM 响应，实测活跃容器不到 5%；真正的瓶颈更可能在网关的
+并发和 token 配额。磁盘那行才是要提前规划的 —— 镜像只算一份，持久卷按人头长。
+
+**每个容器有硬上限**（`sandbox.MEM_LIMIT = 2g`、`PIDS_LIMIT = 512`，`--memory-swap`
+等于 `--memory` 所以是真硬的）。依据：实测活跃沙盒（claude + hermes 同时跑）约 950 MiB、
+145 个进程，空闲只有 ttyd + bash 约 20 MiB。没有上限时「硬上限」那行不成立 ——
+一个跑飞的进程能把整台机器拖垮，其他人一起掉线。老容器用 `--apply-limits` 补，
+`docker update` 即时生效，不重启、不丢会话 —— **前提是它当前占用没超过上限**。
+超过的会被跳过并告警：cgroup 上限一落地就 OOM，杀到 ttyd 整个容器重启，会话就没了。
+等它降下来再跑一次，或者 `destroy --keep-volume` + `create` 重建。
+
 ## 容器长什么样
 
 - ttyd 是 PID 1，每次浏览器连接 spawn 一个登录 shell；`-c 学员:随机口令` 鉴权，
   只绑 `127.0.0.1`，对外靠 web 前端反代。
+- 每个容器 `--memory 2g --memory-swap 2g --pids-limit 512`（见上面 capacity 一节）。
 - `/workspace` 是持久卷，且 `HOME` / `CLAUDE_CONFIG_DIR` / `HERMES_HOME` 都指过去 ——
   代码、claude 会话记录、hermes 状态跟着人走。
 - `/evidence` 是宿主机 bind mount，录屏直接落到宿主机，harvest 不用 `docker cp`。

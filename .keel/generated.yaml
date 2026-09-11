@@ -1,0 +1,56 @@
+schema: 1
+adapter_schema:
+  claude: "2026-09-10"
+  codex: "2026-09-10"
+files:
+  - path: .agents/skills/keel-decide/SKILL.md
+    owned: '*'
+    digest: sha256:27d12fbfd514e4e6e8b8f027e2643455f69d0242dbfa240b8ed0993b8e4a35a6
+    source: .keel/skills/keel-decide/SKILL.md
+    adapter: codex
+  - path: .agents/skills/keel-learn/SKILL.md
+    owned: '*'
+    digest: sha256:f88afb1e48669106102dd7761797c0abc89b28facc9353a96538781eaef9ac49
+    source: .keel/skills/keel-learn/SKILL.md
+    adapter: codex
+  - path: .agents/skills/keel-review/SKILL.md
+    owned: '*'
+    digest: sha256:a7a92ce8de5d4d62d6460a77be1990650b618d8e5bb53f2ab4f656d6dd82ec0c
+    source: .keel/skills/keel-review/SKILL.md
+    adapter: codex
+  - path: .claude/settings.json
+    owned: hooks
+    digest: sha256:a2cdec6da9af331e79797f9c6ed2661e3247064b139ea82469df078418deddf8
+    owned_json: '{"SessionStart":["{\"hooks\":[{\"command\":\"keel hook claude session-start\",\"type\":\"command\"}]}"],"Stop":["{\"hooks\":[{\"command\":\"keel hook claude stop\",\"type\":\"command\"}]}"]}'
+    adapter: claude
+  - path: .claude/skills/keel-decide/SKILL.md
+    owned: '*'
+    digest: sha256:27d12fbfd514e4e6e8b8f027e2643455f69d0242dbfa240b8ed0993b8e4a35a6
+    source: .keel/skills/keel-decide/SKILL.md
+    adapter: claude
+  - path: .claude/skills/keel-learn/SKILL.md
+    owned: '*'
+    digest: sha256:f88afb1e48669106102dd7761797c0abc89b28facc9353a96538781eaef9ac49
+    source: .keel/skills/keel-learn/SKILL.md
+    adapter: claude
+  - path: .claude/skills/keel-review/SKILL.md
+    owned: '*'
+    digest: sha256:a7a92ce8de5d4d62d6460a77be1990650b618d8e5bb53f2ab4f656d6dd82ec0c
+    source: .keel/skills/keel-review/SKILL.md
+    adapter: claude
+  - path: .codex/hooks.json
+    owned: hooks
+    digest: sha256:82d6081754178db6fd8ff775be16f803d4d250f80d4f0c1cb63beb3f5cb67c41
+    owned_json: '{"SessionStart":["{\"hooks\":[{\"command\":\"keel hook codex session-start\",\"type\":\"command\"}]}"],"Stop":["{\"hooks\":[{\"command\":\"keel hook codex stop\",\"type\":\"command\"}]}"]}'
+    adapter: codex
+  - path: .keel/knowledge/INDEX.md
+    owned: '*'
+    digest: sha256:5bc66dc41f47c3a6a4bed7f0f805252185c1ccc62b84b60668146db708a42945
+  - path: AGENTS.md
+    owned: keel:begin..keel:end
+    digest: sha256:7e3fb27cf6a4dd0c71dfbc792ccf0dd4190f16cf9a8600eb1283a27f498b948f
+    adapter: codex
+  - path: CLAUDE.md
+    owned: keel:begin..keel:end
+    digest: sha256:7e3fb27cf6a4dd0c71dfbc792ccf0dd4190f16cf9a8600eb1283a27f498b948f
+    adapter: claude

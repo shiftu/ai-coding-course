@@ -1,0 +1,39 @@
+version: 1
+tools:
+  - claude
+  - codex
+workflow:
+  default_level: 1
+  auto_promote: false
+  actions:
+    data.delete: 0
+    dependency.add: 1
+    public-api.change: 0
+    security: 0
+  paths: {}
+brief:
+  max_bytes: 16384
+  max_decisions: 8
+  max_notes: 8
+gate:
+  require_trailer: false
+  manifests:
+    - go.mod
+    - package.json
+    - pyproject.toml
+    - Cargo.toml
+    - requirements*.txt
+  watch_top_level_dirs: true
+sync:
+  commit_outputs: true
+  skills_mode: copy
+mcp:
+  servers: {}
+knowledge:
+  docs:
+    - README.md
+    - docs/**/*.md
+  exclude: []
+  codemap: false
+  index_history: false
+  index_soft_limit: 200

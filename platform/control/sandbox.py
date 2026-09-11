@@ -17,6 +17,46 @@ GATEWAY_PORT = 7421
 TTYD_INNER_PORT = 7681
 PORT_RANGE = range(7801, 7900)
 
+# 每个学员容器的硬上限。这两个数是容量估算的分母：宿主机能开多少人 =
+# (总内存 − 预留) / MEM_LIMIT（见 capacity.py）。没有上限时容量只是个平均数，
+# 一个跑飞的进程就能把整台机器拖垮，其他 29 个人一起掉线。
+#
+# 2g 的依据：实测活跃沙盒（claude + hermes 两个 agent 同时在跑）约 950 MiB，
+# 空闲只有 ttyd + bash 约 20 MiB；2g 给 pytest / npm install 的尖峰留了一倍余量。
+# 512 个进程：活跃沙盒实测 145 个，fork 炸弹和失控的子进程树到这里就停。
+MEM_LIMIT = "2g"
+PIDS_LIMIT = 512
+_UNITS = {"b": 1, "k": 1024, "m": 1024 ** 2, "g": 1024 ** 3}
+
+
+def mem_limit_bytes(limit=MEM_LIMIT):
+    """docker 风格的 2g / 512m / 纯字节数 → 字节。给 capacity 当分母用。
+
+    这也是 --mem-limit 的校验：认不出来就报错，别把 '2gb' 之类的原样递给 docker
+    让它在起容器的半路上失败。
+    """
+    s = (limit or "").strip().lower()
+    unit = s[-1] if s and s[-1] in _UNITS else "b"
+    num = s[:-1] if s and s[-1] in _UNITS else s
+    try:
+        n = int(float(num) * _UNITS[unit])
+    except ValueError:
+        n = 0
+    if n <= 0:
+        raise SandboxError(f"内存上限 {limit!r} 看不懂 —— 写成 2g / 512m 这种，且必须大于 0")
+    return n
+
+
+def resource_limit_args(mem_limit=MEM_LIMIT):
+    """docker run / docker update 共用的那几个参数。
+
+    --memory-swap 必须等于 --memory：不写的话 docker 默认允许再吃同样大小的 swap，
+    --memory 就成了软的，容量算术随之失效。所以两者永远从同一个 mem_limit 出。
+    """
+    mem_limit_bytes(mem_limit)        # 校验
+    return ["--memory", mem_limit, "--memory-swap", mem_limit,
+            "--pids-limit", str(PIDS_LIMIT)]
+
 
 class SandboxError(RuntimeError):
     pass
@@ -173,11 +213,12 @@ def image_identity(student=None, image=IMAGE):
 
 
 def create(student, *, mode, track, api_key, port, ttyd_user, ttyd_pass, image=IMAGE,
-           record=False):
+           record=False, mem_limit=MEM_LIMIT):
     """起一个学员容器。ttyd 是 PID 1，每次连接 spawn 一个登录 shell。
 
     record=True 让课程模式也录屏（profile.d 里的守卫看 MICROCLASS_RECORD）。
     测评模式不看这个开关，一律录。
+    mem_limit 默认 MEM_LIMIT；单独给某人开大时传进来，容量报告按每个容器的实际上限累加。
     """
     name = container_name(student)
     model = locked("MODEL", "charaboard/deepseek-v4-flash")
@@ -219,6 +260,7 @@ def create(student, *, mode, track, api_key, port, ttyd_user, ttyd_pass, image=I
         env["MICROCLASS_RECORD"] = "1"
 
     args = ["run", "-d", "--name", name, "--restart", "unless-stopped",
+            *resource_limit_args(mem_limit),
             # 只绑回环。对外由 web 前端反代，容器自己绝不暴露到 0.0.0.0
             "-p", f"127.0.0.1:{port}:{TTYD_INNER_PORT}",
             "-v", f"{volume_name(student)}:/workspace",
@@ -346,6 +388,15 @@ def doctor(student):
         ["docker", "exec", container_name(student), "bash", "-lc", "microclass-doctor"],
         capture_output=True, text=True)
     return p.returncode, (p.stdout or "") + (p.stderr or "")
+
+
+def apply_limits(student, mem_limit=MEM_LIMIT):
+    """给一个已经在跑的容器补上资源上限（加上限之前开出来的老容器用）。
+
+    docker update 对运行中的容器即时生效，不用重启、不丢会话 —— 前提是当前占用
+    没超过新上限，超过会立刻 OOM。调用方（capacity.plan_limits）负责先查这一点。
+    """
+    _docker("update", *resource_limit_args(mem_limit), container_name(student))
 
 
 def start(student):

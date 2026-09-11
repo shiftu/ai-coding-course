@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sandctl —— 学员沙盒生命周期。
 
-    sandctl create  <学员> [--mode assessment|course] [--track A|B|C] [--record]
+    sandctl create  <学员> [--mode assessment|course] [--track A|B|C] [--record] [--mem-limit 3g]
     sandctl list
     sandctl info    <学员>
     sandctl url     <学员>
@@ -16,6 +16,7 @@
     sandctl graduate  <学员>          # §8 隐私开关：吊销 key，采集立即停止
     sandctl seed      <学员> [--force]
     sandctl image-audit [--fix]        # 核对档案里的镜像身份 vs 容器实际在跑的
+    sandctl capacity [--mem-limit 3g] [--apply-limits]   # 还能再开多少人；what-if / 补老容器上限
     sandctl grade-all [--stop-first]
     sandctl destroy   <学员> [--keep-volume]
 
@@ -27,6 +28,7 @@ import pathlib
 import subprocess
 import sys
 
+import capacity
 import gateway
 import harvest
 import module_evidence
@@ -65,6 +67,9 @@ def cmd_create(a):
         except sandbox.SandboxError as e:
             _die(f"{e}\n     现有的题：{[p.name for p in sorted(sandbox._CURRICULUM.glob('task-*'))]}")
 
+    # 上限格式在动任何资源之前校验 —— 同 check_task_ready 的道理：别留半成品
+    sandbox.mem_limit_bytes(a.mem_limit)
+
     gateway.ensure_team()
     used = {s.get("ttyd_port") for s in store.all_students()}
     port = sandbox.pick_port(used)
@@ -75,7 +80,8 @@ def cmd_create(a):
 
     try:
         sandbox.create(student, mode=a.mode, track=a.track, api_key=token,
-                       port=port, ttyd_user=student, ttyd_pass=password, record=a.record)
+                       port=port, ttyd_user=student, ttyd_pass=password, record=a.record,
+                       mem_limit=a.mem_limit)
     except Exception:
         gateway.revoke_key(key_id)          # 容器没起来就别留着一把活 key
         store.drop_key(student)
@@ -89,6 +95,9 @@ def cmd_create(a):
         # 课程期录屏开关（测评模式本来就录，这个字段只对 course 有意义）。
         # 记进档案是为了 module-evidence 能说清「这一路为什么是空的」。
         "record": bool(a.record) or a.mode == "assessment",
+        # 开号时给的内存上限。地面真相在容器的 HostConfig 里（capacity 读那个），
+        # 这里只是留档：重建时好知道当初为什么给这个人开大了。
+        "mem_limit": a.mem_limit,
         **{k: v for k, v in sandbox.image_identity().items() if k in _IMAGE_FIELDS},
         "container": sandbox.container_name(student),
         "volume": sandbox.volume_name(student),
@@ -424,6 +433,22 @@ def cmd_image_audit(a):
         print("（只读。要写回档案：sandctl image-audit --fix）")
 
 
+def cmd_capacity(a):
+    """这台宿主机还能再开多少个学员沙盒。算法和两条估算线的含义见 capacity.py。
+
+    默认只读。--apply-limits 只做一件写操作：给加上限之前开出来的老容器补上
+    内存/进程数上限（docker update，即时生效，不重启），补完再印一遍报告。
+    """
+    if a.apply_limits:
+        fixed, over = capacity.apply_missing_limits(a.mem_limit)
+        print(f"已补上限 {len(fixed)} 个（{a.mem_limit}）" + (f"：{'、'.join(fixed)}" if fixed else "（都已经有了）"))
+        for name, mem in over:
+            print(f"跳过 {name}：当前占用 {capacity._fmt(mem)} 已超过上限 {a.mem_limit}，"
+                  "现在加会立刻 OOM 把会话杀掉 —— 等它降下来再跑一次")
+        print()
+    print(capacity.report(a.mem_limit))
+
+
 def cmd_destroy(a):
     rec = store.load(a.student)
     if rec.get("collecting"):
@@ -451,6 +476,8 @@ def main(argv=None):
     c.add_argument("--track", choices=TRACKS, default=None)
     c.add_argument("--record", action="store_true",
                    help="课程模式也录屏（测评模式本来就录）。录了才有东西可挑进精选案例")
+    c.add_argument("--mem-limit", default=sandbox.MEM_LIMIT, metavar="SIZE",
+                   help=f"这个容器的内存上限（如 3g；默认 {sandbox.MEM_LIMIT}）。进程数上限不可调")
 
     sc = with_student("showcase", cmd_showcase, "把一段录屏脱敏后挑进精选案例库（不 commit）")
     sc.add_argument("cast", help="学员证据目录里的文件名，如 session.cast")
@@ -495,6 +522,14 @@ def main(argv=None):
                     help="以容器为准，把缺失/对不上的 image_id、image_stamp 写回档案")
     ia.set_defaults(fn=cmd_image_audit)
 
+    cp = sub.add_parser("capacity", help="估算这台宿主机还能再开多少个学员沙盒")
+    cp.add_argument("--mem-limit", default=sandbox.MEM_LIMIT, metavar="SIZE",
+                    help=f"新开容器按多大算（what-if，如 3g；默认 {sandbox.MEM_LIMIT}）。"
+                         "配 --apply-limits 时就是补上去的值")
+    cp.add_argument("--apply-limits", action="store_true",
+                    help="给没有资源上限的老容器补上 --memory/--pids-limit（docker update，即时生效）")
+    cp.set_defaults(fn=cmd_capacity)
+
     ga = sub.add_parser("grade-all", help="批量补批改：只处理还没批改过的采集中测评号")
     ga.add_argument("--stop-first", action="store_true",
                     help="逐个学员先停容器再采证——保证静止态，推荐")
@@ -504,7 +539,8 @@ def main(argv=None):
     try:
         a.fn(a)
     except (store.StoreError, sandbox.SandboxError, gateway.GatewayError,
-            module_evidence.ModuleEvidenceError, showcase.ShowcaseError) as e:
+            module_evidence.ModuleEvidenceError, showcase.ShowcaseError,
+            capacity.CapacityError) as e:
         _die(str(e))
 
 
