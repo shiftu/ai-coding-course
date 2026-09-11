@@ -45,8 +45,9 @@ def assess(rec, *, base_path):
             "这是设计上的硬边界：**毕业即零采集**（设计文档 §8）。", "info")
         return page("测评", body, student=student, active="/assess")
 
+    task_path = f"/workspace/{sandbox.task_dir(rec.get('track'))}"
     head = md(
-        "测评任务在容器里的 `/workspace/task-a`。20 分钟，任务量故意略超时长——"
+        f"测评任务在容器里的 `{task_path}`。20 分钟，任务量故意略超时长——"
         "**收窄范围本身就是被判定的一项**。\n\n"
         "- 终端里的 `claude` / `codex` 已经接好内部网关，不用你填任何 key\n"
         "- 敲 `card` 看速查卡\n"
