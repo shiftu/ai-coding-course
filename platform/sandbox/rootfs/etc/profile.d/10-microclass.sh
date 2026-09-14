@@ -37,7 +37,7 @@ if [ -t 0 ]; then
   cat <<'BANNER'
 
   AI 微课堂沙盒。四件工具都装好了：claude / codex / hermes / lark-cli
-  AI 请求已经走公司内部网关，不需要你填任何 key。
+  AI 请求已经走统一网关（平台注入），不需要你填任何 key。
   忘了命令怎么写就敲：card
   环境有没有毛病，敲：microclass-doctor
 

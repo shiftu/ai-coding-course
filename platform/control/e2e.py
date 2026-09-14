@@ -23,6 +23,11 @@ import gateway
 import sandbox
 import store
 
+# 毕业前后那两条对照请求用的模型：和沙盒里的统一模型一致，都从 versions.lock 来，
+# 别在这里另写一个只在某个网关上存在的别名。
+PROBE_MODEL = sandbox.locked("MODEL")
+assert PROBE_MODEL, "versions.lock 里没有 MODEL"
+
 STU = "e2e-stu"
 COLS, ROWS = 120, 32
 results = []
@@ -149,9 +154,9 @@ def main():
     live_key = store.get_key(STU)
     assert live_key, "毕业前应当有明文 key，拿不到就没法做反向验证"
     _, before = sh(f"curl -s -o /dev/null -w '%{{http_code}}' -m 15 -X POST "
-                   f"http://127.0.0.1:7421/v1/messages -H 'content-type: application/json' "
+                   f"{gateway.DEFAULT_BASE}/v1/messages -H 'content-type: application/json' "
                    f"-H 'anthropic-version: 2023-06-01' -H 'x-api-key: {live_key}' "
-                   f"-d '{{\"model\":\"charaboard/claude-sonnet-5\",\"max_tokens\":8,"
+                   f"-d '{{\"model\":\"{PROBE_MODEL}\",\"max_tokens\":8,"
                    f"\"messages\":[{{\"role\":\"user\",\"content\":\"hi\"}}]}}'")
     step("毕业前：这把 key 能用（对照组）", before == "200", f"HTTP {before}")
 
@@ -173,9 +178,9 @@ def main():
     print(f"     （静默等待 {quiet}s 让网关鉴权缓存自然过期；期间一个请求都不发）")
     time.sleep(quiet)
     _, after = sh(f"curl -s -o /dev/null -w '%{{http_code}}' -m 15 -X POST "
-                  f"http://127.0.0.1:7421/v1/messages -H 'content-type: application/json' "
+                  f"{gateway.DEFAULT_BASE}/v1/messages -H 'content-type: application/json' "
                   f"-H 'anthropic-version: 2023-06-01' -H 'x-api-key: {live_key}' "
-                  f"-d '{{\"model\":\"charaboard/claude-sonnet-5\",\"max_tokens\":1,"
+                  f"-d '{{\"model\":\"{PROBE_MODEL}\",\"max_tokens\":1,"
                   f"\"messages\":[{{\"role\":\"user\",\"content\":\"hi\"}}]}}'")
     step(f"毕业后静默 {quiet}s：同一把 key 同一条请求被拒（{before} → {after}）",
          after != "200", f"仍然 HTTP 200 —— 采集没停")

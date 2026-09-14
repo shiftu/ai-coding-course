@@ -47,12 +47,16 @@ python3 sandctl image-audit --fix    # 以容器为准，补 image_id / image_st
 
 ## 基底怎么来的
 
-基底 `microclass/hermes-base:v0.20.1` 是用 hermes-agent 仓库**自带的**多架构 Dockerfile
-构建的（源码在 `~/.hermes/hermes-agent`，它有显式 aarch64 分支）：
+基底是 `versions.lock` 里 `HERMES_BASE` 指的那个 tag，用上游
+[hermes-agent](https://github.com/NousResearch/hermes-agent) 仓库**自带的**多架构 Dockerfile
+构建（它有显式 aarch64 分支）。本仓库不含这份源码，也不发布这个镜像，自己构建一次即可：
 
 ```bash
-cd ~/.hermes/hermes-agent
-DOCKER_BUILDKIT=1 docker build -t microclass/hermes-base:v0.20.1 .
+BASE=$(sed -n 's/^HERMES_BASE=//p' versions.lock)       # 例如 microclass/hermes-base:v2026.9.7
+git clone https://github.com/NousResearch/hermes-agent /tmp/hermes-agent
+cd /tmp/hermes-agent
+git checkout <和 tag 对应的上游版本>                       # 版本号跟着 HERMES_BASE 的后缀走
+DOCKER_BUILDKIT=1 docker build -t "$BASE" .
 ```
 
 要点：

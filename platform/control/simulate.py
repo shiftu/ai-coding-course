@@ -24,8 +24,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sandbox
 import store
 
-TASK_SRC = "/Users/panda/ai-coding-course/curriculum/assessment/task-a"
-ISSUE_SRC = "/Users/panda/ai-coding-course/curriculum/assessment/ISSUE-7.md"
+# 测评任务的真源和 sandbox.seed_task 用的是同一处，按仓库相对路径找，不写死机器路径。
+TASK_SRC = str(sandbox._CURRICULUM / "task-a")
+ISSUE_SRC = str(sandbox._CURRICULUM / "ISSUE-7.md")
 COLS, ROWS = 140, 40
 
 PERSONAS = {

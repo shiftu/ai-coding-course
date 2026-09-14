@@ -11,7 +11,8 @@ verify:
 
 # 把所有工具指向内部网关
 
-公司所有 AI 调用都从 llm-gateway 出去，这是"水电"。先确认它通：
+团队所有 AI 调用都从 [llm-gateway](https://github.com/shiftu/llm-gateway) 出去，
+这是"水电"。先确认它通（地址和端口以运维给的为准，下面按默认 `127.0.0.1:7421` 写）：
 
 ```bash
 curl -s http://127.0.0.1:7421/v1/models -H "Authorization: Bearer $LLM_GW_KEY" | head -5

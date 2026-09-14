@@ -25,7 +25,10 @@ import urllib.request
 HERE = pathlib.Path(__file__).parent
 GATEWAY = os.environ.get("LLM_GATEWAY_URL", "http://127.0.0.1:7421")
 MODEL = os.environ.get("JUDGE_MODEL", "charaboard/claude-sonnet-5")
-TOKEN_FILE = pathlib.Path.home() / ".config" / "llm-gateway" / "token"
+# 网关（https://github.com/shiftu/llm-gateway）的 admin token。
+# 和 platform/control/gateway.py 认同一个文件、同一个环境变量。
+TOKEN_FILE = pathlib.Path(os.path.expanduser(
+    os.environ.get("MICROCLASS_GATEWAY_TOKEN_FILE", "~/.config/llm-gateway/token")))
 
 # 少于这个数量的学员发言 = 只有初始任务描述，没有可判定的表达行为
 MIN_TURNS_TO_JUDGE = 2

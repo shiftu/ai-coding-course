@@ -112,10 +112,10 @@
 <h2 id="d0">Day 0 · 开营准备（自选动作，开营前一天）</h2>
 <div class="card lesson">
   <div class="head"><span class="no">0</span><span class="title">环境清单：把武器先领了</span><span class="dur">约 30 分钟 · 管理员提前开通权限</span></div>
-  <div class="goal">目标：每个新人开营前拥有完整账号与工具链，第 1 课直接开讲，不浪费课堂时间。</div>
+  <div class="goal">目标：每个新人开营前拥有完整账号与工具链，第 1 课直接开讲，不浪费课堂时间。<br><small>下文的 <code>ai-workshop</code> 组织、Gitea、PostHog 等是参考部署的示例，换成你们自己的代码托管与监控即可。</small></div>
   <div class="box green"><div class="t">✅ 人员开通（HR/IT 在新人入职当天完成）</div>
     <ul>
-      <li>Gitea 账号（<code>gitea.jiangtao.lol</code>，加入 <code>ai-workshop</code> 组织）</li>
+      <li>代码托管账号（Gitea / GitHub，加入课程组织，示例 <code>ai-workshop</code>）</li>
       <li>llm-gateway 团队 + API Key（管理员在网关建 <code>team=新人姓名</code>，发 <code>ak_xxx</code>；配月度 budget）</li>
       <li>飞书开发者/机器人权限（新人自己的 Hermes 会话用）</li>
       <li>PostHog / Prometheus / SigNoz 只读账号</li>
@@ -123,7 +123,7 @@
   </div>
   <div class="box blue"><div class="t">🛠 新人本机安装（步骤，按序执行）</div>
     <ol class="steps">
-      <li>确认 llm-gateway 连通：<code>curl -s http://127.0.0.1:7421/v1/models -H "Authorization: Bearer $LLM_GW_KEY" | head -5</code> → 见到模型列表即通（<i>注意用 127.0.0.1，公网域名会被 WAF 拦 403</i>）</li>
+      <li>确认 <a href="https://github.com/shiftu/llm-gateway">llm-gateway</a> 连通：<code>curl -s http://127.0.0.1:7421/v1/models -H "Authorization: Bearer $LLM_GW_KEY" | head -5</code> → 见到模型列表即通（<i>地址端口以运维给的为准；用本机地址，公网域名可能被 WAF 拦 403</i>）</li>
       <li>安装 Hermes Agent：<code>curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash</code></li>
       <li>体检：<code>hermes doctor</code> → 全绿通过</li>
       <li>安装 Claude Code：<code>npm install -g @anthropic-ai/claude-code</code>；Codex：<code>npm install -g @openai/codex</code></li>
@@ -134,7 +134,7 @@
   </div>
   <div class="box red"><div class="t">⚠ 常见坑</div>
     <ul>
-      <li>用公网域名 <code>llm.jiangtao.lol</code> 直连 → Cloudflare WAF 403「Your request was blocked」。一律走 <code>127.0.0.1:7421</code>。</li>
+      <li>用公网域名（如 <code>llm.example.com</code>）直连网关 → 被 WAF 拦 403「Your request was blocked」。一律走本机地址 <code>127.0.0.1:7421</code>。</li>
       <li>Key 必须存 <code>~/.hermes/.env</code> 或 macOS Keychain，<b>严禁 commit 进仓库</b>。</li>
     </ul>
   </div>

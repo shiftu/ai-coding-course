@@ -61,13 +61,13 @@ model_provider = "microclass"
 #
 # 顺带解掉了那条 bubblewrap 警告。**注意它不是装个包就能修的**：实测在这个
 # 无特权容器里 apt 装的 bwrap 直接报 "No permissions to create new namespace"
-# —— 内核（colima VM）不允许非特权用户命名空间。装上只会把"用内置兜底"
+# —— 宿主 docker VM 的内核不允许非特权用户命名空间。装上只会把"用内置兜底"
 # 换成"PATH 上有个跑不起来的 bwrap"，比现在更糟。
 sandbox_mode = "danger-full-access"
 approval_policy = "never"
 
 [model_providers.microclass]
-name = "AI 微课堂内部网关"
+name = "AI 微课堂网关"
 base_url = "${GW}/v1"
 env_key = "OPENAI_API_KEY"
 wire_api = "responses"
@@ -85,7 +85,7 @@ model: ${MODEL}
 
 providers:
   microclass:
-    name: AI 微课堂内部网关
+    name: AI 微课堂网关
     base_url: ${GW}/v1
     key_env: OPENAI_API_KEY
     api_mode: chat

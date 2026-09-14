@@ -155,7 +155,7 @@ assert: not exists(secret_literal)
 ### safety/via-gateway
 
 - **维度** safety-gate · **判定** hard
-- **人话**：模型调用一律走公司内部网关，不直连外部 API 端点。
+- **人话**：模型调用一律走统一网关（llm-gateway），不直连外部 API 端点。
 - 与上一条同样，只扫你写下的字段 —— 文档里提到 `api.anthropic.com` 不算违规。
 
 ```rubric

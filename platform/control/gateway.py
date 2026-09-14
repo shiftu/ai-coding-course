@@ -1,7 +1,9 @@
 """llm-gateway 的管理面客户端。
 
-网关没有管 key 的 CLI 子命令，但它的 MCP 端点走 HTTP JSON-RPC，
-admin token 在 ~/.config/llm-gateway/token。这里只用标准库。
+网关是另一个项目：https://github.com/shiftu/llm-gateway ，本仓库不含它，
+必须先跑起来。它没有管 key 的 CLI 子命令，但 MCP 端点走 HTTP JSON-RPC，
+admin token 默认在 ~/.config/llm-gateway/token（MICROCLASS_GATEWAY_TOKEN_FILE 可改）。
+这里只用标准库。
 
 每人一把 key 是设计文档 §1.1 漏掉、spike 补上的工程项：
 它同时是 §8「毕业即停止采集」的那个开关 —— 吊销 key，采集立刻停。
@@ -12,7 +14,8 @@ import urllib.error
 import urllib.request
 
 DEFAULT_BASE = os.environ.get("MICROCLASS_GATEWAY_ADMIN", "http://127.0.0.1:7421")
-TOKEN_PATH = os.path.expanduser("~/.config/llm-gateway/token")
+TOKEN_PATH = os.path.expanduser(
+    os.environ.get("MICROCLASS_GATEWAY_TOKEN_FILE", "~/.config/llm-gateway/token"))
 TEAM_SLUG = os.environ.get("MICROCLASS_TEAM", "microclass")
 
 # 网关鉴权的内存缓存 TTL，见 llm-gateway internal/server/server.go:

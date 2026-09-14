@@ -8,7 +8,11 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 IMG="${MICROCLASS_IMAGE:-microclass/sandbox:current}"
-GW="${MICROCLASS_GATEWAY:-http://192.168.5.2:7421}"
+# 容器看网关的地址，和 sandbox.py 的默认一致：host.docker.internal 加 host-gateway 兜底。
+# 网关不在宿主机上就 MICROCLASS_GATEWAY=http://<host>:<port> 覆盖。
+GW="${MICROCLASS_GATEWAY:-http://host.docker.internal:7421}"
+# 端到端那项用的模型：默认取 versions.lock 的统一模型（网关里必须有这个别名）。
+SMOKE_MODEL="${MICROCLASS_SMOKE_MODEL:-$(sed -n 's/^MODEL=//p' versions.lock | head -1)}"
 pass=0; fail=0
 ok()  { echo "  ok   $1"; pass=$((pass+1)); }
 bad() { echo "  FAIL $1"; echo "       $2"; fail=$((fail+1)); }
@@ -63,15 +67,16 @@ case "$got" in *'/opt/hermes/.venv/bin/python3'*) ok "默认 CMD 里 python3 也
   *) bad "默认 CMD 的 PATH" "python3 没指向 venv：$got" ;; esac
 
 echo
-echo "[6] 端到端：claude-code 经内部网关跑 Bash，且不被权限拦下"
+echo "[6] 端到端：claude-code 经网关跑 Bash，且不被权限拦下"
 if [ -z "${MICROCLASS_SMOKE_KEY:-}" ]; then
   echo "  skip 没给 MICROCLASS_SMOKE_KEY（这是唯一花钱的一项）"
 else
   got=$(docker run --rm --entrypoint /bin/bash \
+      --add-host host.docker.internal:host-gateway \
       -e ANTHROPIC_BASE_URL="$GW" \
       -e ANTHROPIC_AUTH_TOKEN="$MICROCLASS_SMOKE_KEY" \
-      -e ANTHROPIC_MODEL=charaboard/claude-sonnet-5 \
-      -e ANTHROPIC_SMALL_FAST_MODEL=charaboard/claude-sonnet-5 \
+      -e ANTHROPIC_MODEL="$SMOKE_MODEL" \
+      -e ANTHROPIC_SMALL_FAST_MODEL="$SMOKE_MODEL" \
       "$IMG" -lc 'cd /workspace && claude -p "Use the Bash tool to run: python3 -c \"print(6*7)\" and tell me the number." --output-format json 2>&1')
   read -r n_deny result <<<"$(printf '%s' "$got" | python3 -c '
 import sys, json

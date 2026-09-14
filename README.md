@@ -1,7 +1,10 @@
 # AI 微课堂
 
-公司内部的 AI 能力加油站：**自愿来、随时走**。用一次 33 分钟的沙盒实操摸底（看行为，不是答题），
+面向团队内部的 AI 能力加油站：**自愿来、随时走**。用一次 33 分钟的沙盒实操摸底（看行为，不是答题），
 按短板给课，内容跟着工具版本走。规模假设是约 100 人/年、峰值并发 30 —— 精品小班，不是公共平台。
+
+仓库里没有任何一家公司的域名、内网地址或密钥：要跑起来只需要 Docker 和一个
+[llm-gateway](https://github.com/shiftu/llm-gateway)，其余外部服务都是可选的，见「外部依赖」。
 
 一名学员的完整路径：
 
@@ -77,11 +80,39 @@ cd platform/web && python3 serve.py --dev-login    # 起 web 前端
 | Python | 3.x | 平台层**只用标准库**，没有 requirements.txt，不用建虚拟环境 |
 | Docker | 带 buildx | 镜像基底用了 `COPY --chmod`，需要 BuildKit |
 | 架构 | linux/arm64 | 镜像只构建 arm64 |
-| LLM 网关 | `127.0.0.1:7421` | **不在本仓库**，是另一个内部服务，必须先跑起来 |
-| hermes 基底镜像 | 本地已有 | `versions.lock` 里的 `HERMES_BASE`，需从 hermes 源码另行构建 |
+| LLM 网关 | [llm-gateway](https://github.com/shiftu/llm-gateway) | **不在本仓库**，必须先跑起来（默认宿主机 `127.0.0.1:7421`） |
+| hermes 基底镜像 | 本地已有 | `versions.lock` 里的 `HERMES_BASE`，从 [hermes-agent](https://github.com/NousResearch/hermes-agent) 源码构建，见 `platform/sandbox/README.md` |
 
-网关地址在 `platform/control/gateway.py` 的 `MICROCLASS_GATEWAY_ADMIN` 环境变量里，默认回环 7421。
-容器看宿主机的地址是 `platform/control/sandbox.py` 的 `HOST_FROM_CONTAINER`，colima 下是 `192.168.5.2`。
+### 外部依赖
+
+| 服务 | 必需？ | 用在哪 | 换成你们自己的 |
+|---|---|---|---|
+| [llm-gateway](https://github.com/shiftu/llm-gateway) | **必需** | 每人一把 key、调用日志（证据源 ④）、毕业吊销、批改 judge | 跑一个实例，建 team，把 admin token 放到 `~/.config/llm-gateway/token` |
+| Docker | **必需**（沙盒） | 学员容器 | Docker Desktop / OrbStack / colima / Linux 原生都行 |
+| [hermes-agent](https://github.com/NousResearch/hermes-agent) | **必需**（沙盒） | 沙盒基底镜像 | 按 `platform/sandbox/README.md` 从上游源码构建 |
+| 飞书（Lark） | 可选 | web 前端 SSO；沙盒里的 `lark-cli` 课程切片 | 不配就用 `--dev-login`；lark 切片不装飞书凭证只能验到"命令能跑" |
+| Gitea / GitHub | 可选 | 课程内容里的练习仓库、Milestone、打卡 Issue | 只是课程文案（`index.html`、`curriculum/slices/tool/gitea-*`），换成你们的代码托管即可 |
+
+模型名是网关里的**别名**，不是厂商原名：`versions.lock` 的 `MODEL` / `CODEX_MODEL`、批改用的 `JUDGE_MODEL`
+都必须出现在你的网关 `/v1/models` 清单里（`microclass-doctor` 会实际核对）。仓库里写的是参考部署的别名，
+按你的网关改。
+
+### 环境变量
+
+平台层没有配置文件，全部走环境变量，默认值都是"网关跑在同一台机器的回环上"：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `MICROCLASS_GATEWAY_ADMIN` | `http://127.0.0.1:7421` | **宿主机**看网关的地址（sandctl 签 key、拉日志用） |
+| `MICROCLASS_GATEWAY_TOKEN_FILE` | `~/.config/llm-gateway/token` | 网关 admin token 文件 |
+| `MICROCLASS_TEAM` | `microclass` | 学员 key 归属的网关 team slug |
+| `MICROCLASS_GATEWAY_HOST` | `host.docker.internal` | **容器**看网关的主机名。默认值在 Docker Desktop / OrbStack / colima 天然可解析，Linux 原生 docker 由 `--add-host …:host-gateway` 兜底（此时网关要监听 `0.0.0.0` 或 docker0，不能只听回环） |
+| `MICROCLASS_GATEWAY_PORT` | `7421` | 容器看网关的端口 |
+| `MICROCLASS_STATE` | `~/.local/state/microclass` | 学员档案、key、证据的落盘目录 |
+| `MICROCLASS_LARK_APP_ID` / `_APP_SECRET` | 空 | 配了就是正式环境（飞书 SSO），`--dev-login` 会拒绝启动 |
+| `MICROCLASS_WEB_BASE` | 空 | 对外地址，拼 SSO 回调用 |
+| `LLM_GATEWAY_URL` / `JUDGE_MODEL` | `http://127.0.0.1:7421` / 见 `judge.py` | 批改 judge 走的网关和模型别名 |
+| `MICROCLASS_SMOKE_KEY` / `MICROCLASS_SMOKE_MODEL` | 空 / `versions.lock` 的 `MODEL` | `smoke.sh` 端到端那一项 |
 
 ### 一、构建沙盒镜像
 
@@ -237,8 +268,10 @@ keel check --target index           # 提交前
 - **rubric 缺「需求表达」的 L0→L1 锚点**，是个真缺口。
 - **精选案例库是空的。** 设计定稿、入库工具就绪、内容还没有。
 - **容量估算的硬上限是内存维度的。** 真正的瓶颈更可能是网关的并发和 token 配额，`capacity` 不覆盖。
-- **macOS 上 `docker info` 报的是虚拟机，不是你的 Mac。** colima 下容量按 VM 的配额算，
-  要开大用 `colima start --cpu N --memory M`。
+- **macOS 上 `docker info` 报的是虚拟机，不是你的 Mac。** Docker Desktop / colima 下容量按 VM 的配额算，
+  要开大得调 VM（colima 是 `colima start --cpu N --memory M`）。
+- **课程文案里的组织名和仓库名是示例。** `index.html` 和部分切片提到的 `ai-workshop/playground`、
+  Gitea Milestone、PostHog 等，是参考部署的做法，换成你们自己的即可，平台代码不依赖它们。
 
 ---
 

@@ -3,6 +3,7 @@
 一名学员 = 一个容器 + 一个持久卷 + 一个只监听回环的 ttyd 端口。
 不上 K8s、不做预约调度 —— 峰值并发 30，`docker run` 足够（设计文档 §6）。
 """
+import os
 import pathlib
 import secrets
 import socket
@@ -11,9 +12,16 @@ import subprocess
 import store
 
 IMAGE = "microclass/sandbox:current"
-# 容器看宿主机的地址。colima(vz+gvproxy) 下就是 192.168.5.2，spike 已实测。
-HOST_FROM_CONTAINER = "192.168.5.2"
-GATEWAY_PORT = 7421
+# 容器看宿主机（也就是网关）的地址。默认 host.docker.internal：Docker Desktop /
+# OrbStack / colima 天然解析它；Linux 原生 docker 不解析，所以 create() 会加一条
+# --add-host host.docker.internal:host-gateway 兜底（在 VM 型运行时里这条是无害的
+# 重复，两条解析出来的都是 VM 的宿主地址，实测过）。
+#
+# 网关不在宿主机上、或 Linux 原生 docker 下网关只听回环而不听 docker0，
+# 用 MICROCLASS_GATEWAY_HOST / MICROCLASS_GATEWAY_PORT 指过去。
+DEFAULT_GATEWAY_HOST = "host.docker.internal"
+HOST_FROM_CONTAINER = os.environ.get("MICROCLASS_GATEWAY_HOST", DEFAULT_GATEWAY_HOST)
+GATEWAY_PORT = int(os.environ.get("MICROCLASS_GATEWAY_PORT", "7421"))
 TTYD_INNER_PORT = 7681
 PORT_RANGE = range(7801, 7900)
 
@@ -125,6 +133,14 @@ def locked(key, default=""):
 
 def gateway_url(host=HOST_FROM_CONTAINER, port=GATEWAY_PORT):
     return f"http://{host}:{port}"
+
+
+def host_alias_args(host=HOST_FROM_CONTAINER):
+    """docker run 用的 --add-host。只在走默认别名时加：显式指定了别的主机名
+    说明运维自己知道怎么到网关，别再往容器 /etc/hosts 里塞一条无关记录。"""
+    if host != DEFAULT_GATEWAY_HOST:
+        return []
+    return ["--add-host", f"{DEFAULT_GATEWAY_HOST}:host-gateway"]
 
 
 UNKNOWN_STAMP = "unknown"
@@ -261,6 +277,7 @@ def create(student, *, mode, track, api_key, port, ttyd_user, ttyd_pass, image=I
 
     args = ["run", "-d", "--name", name, "--restart", "unless-stopped",
             *resource_limit_args(mem_limit),
+            *host_alias_args(),
             # 只绑回环。对外由 web 前端反代，容器自己绝不暴露到 0.0.0.0
             "-p", f"127.0.0.1:{port}:{TTYD_INNER_PORT}",
             "-v", f"{volume_name(student)}:/workspace",
