@@ -173,6 +173,24 @@ def main():
         check("登录成功并下发 cookie", st == 302 and cookie.startswith("mc_session="),
               f"{st} {hd.get('Set-Cookie')}")
 
+        # --dev-student：给刚 clone 的空仓库造一个能登录的学员，只有档案
+        rec = serve.seed_dev_student("stu-seed")
+        check("--dev-student 造出的档案没有容器也没有 key",
+              rec.get("dev_seed") is True and "gateway_key_id" not in rec and "ttyd_port" not in rec)
+        check("再造一次是幂等的", serve.seed_dev_student("stu-seed") == rec)
+        st, hd, _ = req(base + "/auth/dev", data=b"student=stu-seed")
+        check("造出来的学员能通过开发登录", st == 302 and hd.get("Location") == "/track",
+              f"{st} {hd.get('Location')}")
+        seed_cookie = (hd.get("Set-Cookie") or "").split(";")[0]
+        for p in ("/track", "/me", "/assess"):
+            st, _, _ = req(base + p, cookie=seed_cookie)
+            check(f"只有档案的学员打开 {p} 不炸", st == 200, str(st))
+        try:
+            serve.seed_dev_student("../x")
+            check("非法 ID 被 seed 拒绝", False)
+        except store.StoreError:
+            check("非法 ID 被 seed 拒绝", True)
+
         print("\n== 五个页面 ==")
         for p, must in (("/assess", "iframe"), ("/track", "免修通过"),
                         ("/me", "svg"), ("/evidence", "采证清单")):

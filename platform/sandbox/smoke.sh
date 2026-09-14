@@ -78,11 +78,15 @@ else
       -e ANTHROPIC_MODEL="$SMOKE_MODEL" \
       -e ANTHROPIC_SMALL_FAST_MODEL="$SMOKE_MODEL" \
       "$IMG" -lc 'cd /workspace && claude -p "Use the Bash tool to run: python3 -c \"print(6*7)\" and tell me the number." --output-format json 2>&1')
+  # 结果是**最后一行**以 { 开头的 JSON。不能找第一个 {：模型别名不在 claude-code
+  # 内置表里时（网关别名都不在），它会先吐一行 [claude-code:unrecognized_model] {…}
+  # 警告再给结果，取第一个 { 就会拿警告去当结果解析，把一次成功的请求判成失败。
   read -r n_deny result <<<"$(printf '%s' "$got" | python3 -c '
 import sys, json
-raw = sys.stdin.read(); i = raw.find("{")
+raw = sys.stdin.read()
+lines = [l for l in raw.splitlines() if l.startswith("{")]
 try:
-    d = json.loads(raw[i:])
+    d = json.loads(lines[-1])
     print(len(d.get("permission_denials", [])), (d.get("result") or "").replace("\n"," ")[:70])
 except Exception:
     print("parse-fail", raw[:150].replace("\n"," "))')"

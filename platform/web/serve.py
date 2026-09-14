@@ -401,14 +401,41 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
+def seed_dev_student(student):
+    """给开发登录造一个只有档案、没有容器和网关 key 的学员。已存在则原样返回。
+
+    开发登录故意只认档案里有的学员（见 _dev_login），所以一份刚 clone 下来、
+    还没开过任何号的仓库，登录页会把所有 ID 都拒掉 —— 开发者连页面长什么样都看不到。
+    这里补的是那条路，**不是**另一种开号方式：没有 key、没有卷、collecting=False，
+    测评页点「开始」会因为没有容器而失败，那是预期，README 里写明了。
+    """
+    student = store.check_id(student)
+    if store.exists(student):
+        return store.load(student)
+    return store.save({
+        "student": student,
+        "created_at": store.now(),
+        "mode": "course",
+        "track": None,
+        "modules": {},
+        "collecting": False,
+        "graduated_at": None,
+        "dev_seed": True,
+    })
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="AI 微课堂 web 前端")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=7900)
     ap.add_argument("--dev-login", action="store_true",
                     help="启用「填学员 ID 直接进」的开发入口（仅限监听回环）")
+    ap.add_argument("--dev-student", action="append", default=[], metavar="ID",
+                    help="配合 --dev-login：没有这个学员就建一份只有档案的（不开容器、不发 key），可重复")
     a = ap.parse_args(argv)
 
+    if a.dev_student and not a.dev_login:
+        raise SystemExit("错误：--dev-student 只配合 --dev-login 使用")
     if a.dev_login:
         # 这个入口等于没有认证。三道闸，缺一不可：
         # 必须显式打开、必须只监听回环、必须没配飞书 —— 配了飞书说明是正式环境。
@@ -417,6 +444,13 @@ def main(argv=None):
         if larksso.configured():
             raise SystemExit("错误：已经配了飞书应用，不能再开 --dev-login")
         print("！！ 开发登录已启用：任何能连到这个端口的人都能扮演任意学员。", file=sys.stderr)
+        for sid in a.dev_student:
+            try:
+                rec = seed_dev_student(sid)
+            except store.StoreError as e:
+                raise SystemExit(f"错误：{e}")
+            print(f"   开发学员 {sid}：{'新建' if rec.get('dev_seed') else '已有'}档案，"
+                  f"存于 {store.STUDENTS_DIR}", file=sys.stderr)
     elif not larksso.configured():
         raise SystemExit(
             "错误：没有配置飞书应用，登录不可用。\n"

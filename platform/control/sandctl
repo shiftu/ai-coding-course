@@ -146,6 +146,9 @@ def cmd_create(a):
 
 
 def _print_url(rec):
+    if rec.get("dev_seed"):
+        _die(f"{rec['student']} 是 serve.py --dev-student 造的开发档案，没有容器。"
+             f"要真沙盒：sandctl destroy {rec['student']} 再 sandctl create")
     # 带上 base-path：ttyd 现在挂在 /t 下，根路径是 404（见 sandbox.TTYD_BASE_PATH）
     print(f"  终端  http://127.0.0.1:{rec['ttyd_port']}{sandbox.TTYD_BASE_PATH}/")
     print(f"  账号  {rec['ttyd_user']}")
@@ -164,8 +167,10 @@ def cmd_list(a):
         return
     print(f"{'学员':<16}{'模式':<12}{'轨道':<6}{'容器':<10}{'端口':<7}{'采集':<6}")
     for r in rows:
+        # serve.py --dev-student 造的档案没有容器和端口（只为开发登录用），列出来但别炸
+        state = "无(开发)" if r.get("dev_seed") else sandbox.container_state(r["student"])
         print(f"{r['student']:<16}{r['mode']:<12}{str(r.get('track') or '-'):<6}"
-              f"{sandbox.container_state(r['student']):<10}{r['ttyd_port']:<7}"
+              f"{state:<10}{str(r.get('ttyd_port') or '-'):<7}"
               f"{'是' if r.get('collecting') else '否':<6}")
 
 
@@ -451,6 +456,11 @@ def cmd_capacity(a):
 
 def cmd_destroy(a):
     rec = store.load(a.student)
+    if rec.get("dev_seed"):
+        # 开发档案：没有 key、没有容器、没有卷，只删档案
+        store.remove(a.student)
+        print(f"{a.student} 已删除（开发档案，本来就没有容器和 key）")
+        return
     if rec.get("collecting"):
         gateway.revoke_key(rec["gateway_key_id"])
     sandbox.destroy(a.student, keep_volume=a.keep_volume)

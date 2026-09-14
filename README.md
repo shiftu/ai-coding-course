@@ -50,24 +50,28 @@ index.html           产品概览单页，直接 open 就能看
 
 ---
 
-## 快速开始：只想看看，不装 Docker
+## 快速开始：只想看看，不装 Docker（约 1 分钟）
 
-三条命令，全程离线、零依赖、不碰容器：
+三条命令，全程离线、零依赖、不碰容器、不碰网关：
 
 ```bash
-open index.html                                    # 产品概览
+open index.html                                                    # 产品概览
 
-cd curriculum && python3 validate.py               # 课程结构校验（约 1 秒）
+cd curriculum && python3 validate.py                               # 课程结构校验（约 1 秒）
 
-cd platform/web && python3 serve.py --dev-login    # 起 web 前端
+cd platform/web && python3 serve.py --dev-login --dev-student stu-dev   # 起 web 前端
 ```
 
-然后开 http://127.0.0.1:7900/ ，填任意学员 ID 就能进。
+然后开 http://127.0.0.1:7900/ ，学员 ID 填 `stu-dev`，五个页面都能看。
 
-`--dev-login` **等于没有认证**，所以它有三道闸，缺一不可：必须显式打开、必须只监听回环、
-必须没配飞书应用（配了说明这是正式环境，直接拒绝启动）。
+- `--dev-login` **等于没有认证**，所以它有三道闸，缺一不可：必须显式打开、必须只监听回环、
+  必须没配飞书应用（配了说明这是正式环境，直接拒绝启动）。
+- `--dev-student` 只造一份**档案**（没有容器、没有网关 key）。开发登录故意只认档案里有的学员，
+  刚 clone 下来的仓库一个学员都没有，不带这个参数登录页会把所有 ID 都拒掉。
+- 这条路走不到沙盒：测评页点"开始"会因为没有容器而失败，这是预期。看完清掉：
+  `cd platform/control && python3 sandctl destroy stu-dev`。
 
-这条路走不到沙盒 —— 没有容器，测评页点"开始"会失败。要完整跑通看下一节。
+要完整跑通看下一节。
 
 ---
 
@@ -114,13 +118,29 @@ cd platform/web && python3 serve.py --dev-login    # 起 web 前端
 | `LLM_GATEWAY_URL` / `JUDGE_MODEL` | `http://127.0.0.1:7421` / 见 `judge.py` | 批改 judge 走的网关和模型别名 |
 | `MICROCLASS_SMOKE_KEY` / `MICROCLASS_SMOKE_MODEL` | 空 / `versions.lock` 的 `MODEL` | `smoke.sh` 端到端那一项 |
 
+### 零、先确认网关在
+
+后面每一步都要网关，先花十秒确认，别等到开号时才发现：
+
+```bash
+curl -s http://127.0.0.1:7421/healthz            # 期望 {"status":"ok",...}
+ls ~/.config/llm-gateway/token                  # sandctl 签 key 用的 admin token
+```
+
+网关不在这台机器、或 token 不在默认位置，用上面「环境变量」表里的
+`MICROCLASS_GATEWAY_ADMIN` / `MICROCLASS_GATEWAY_HOST` / `MICROCLASS_GATEWAY_TOKEN_FILE` 指过去。
+
 ### 一、构建沙盒镜像
 
 ```bash
 cd platform/sandbox
 ./build.sh        # 版本全部读 versions.lock，不接受命令行覆盖
-./smoke.sh        # 冒烟；端到端那项要 MICROCLASS_SMOKE_KEY
+./smoke.sh        # 冒烟：前 5 项不花钱；第 6 项要 MICROCLASS_SMOKE_KEY，没给就跳过
 ```
+
+第 6 项是让 claude-code 真经网关跑一次，`MICROCLASS_SMOKE_KEY` 是网关签发的任意一把
+inbound key（`ak_…`）。没有现成的可以先跳过，开完第一个学员后
+`~/.local/state/microclass/secrets/<学员>.key` 就是一把。
 
 首次构建 15–45 分钟。`versions.lock` 是环境版本的**唯一真源**（claude-code、codex、lark-cli、
 ttyd、glow、pytest、asciinema，以及统一模型），改它等于改所有人的环境。
@@ -137,8 +157,10 @@ python3 sandctl create stu-a --mode assessment --track A
 
 它会依次：查网关健康 → 查这一轨有没有题 → 发网关 key → 起容器 → 投测评任务 →
 跑镜像自检 → 跑运行期体检 → 打印终端地址和口令。任何一步不过就不交付，不留半成品。
+体检会让 claude / codex / hermes 各真发一次请求（花网关的钱，几分钱量级），整步约 2–3 分钟。
 
-容器只监听回环，对外由 web 前端反代。
+容器只监听回环，对外由 web 前端反代。开发时用 `--dev-login` 起前端，登录页填 `stu-a`
+就能在浏览器里进它的终端（不需要 `--dev-student`，真学员本来就有档案）。
 
 ### 三、起 web 前端
 
@@ -184,6 +206,24 @@ python3 ../../curriculum/rubric/grade.py <harvest目录> \
 
 状态全部落在 `~/.local/state/microclass/`（可用 `MICROCLASS_STATE` 改）：一人一个 JSON 文件，
 没有数据库 —— 每周约 2 个新人，用不着。
+
+### 一条命令都不漏的完整链路（实测）
+
+下面这串在一台干净的 colima + 本机 llm-gateway 上从零跑过一遍，每一步的输出都对得上文档：
+
+```bash
+cd platform/sandbox   && ./build.sh && ./smoke.sh                    # 镜像
+cd platform/control   && python3 sandctl create stu-a --mode assessment --track A
+                         python3 sandctl list && python3 sandctl url stu-a
+                         python3 sandctl capacity && python3 sandctl image-audit
+cd platform/web       && python3 serve.py --dev-login                # 浏览器登 stu-a，进终端
+cd platform/control   && python3 harvest.py stu-a                    # 采证
+H=$(ls -d ~/.local/state/microclass/evidence/stu-a/harvest-* | tail -1)
+python3 ../../curriculum/rubric/grade.py "$H" --student stu-a --out "$H/grade"
+python3 sandctl graduate stu-a && python3 sandctl destroy stu-a      # 收尾
+```
+
+首次 `build.sh` 十几到四十分钟（拉 npm / apt），之后靠 BuildKit 缓存约一分钟；其余步骤加起来五分钟以内。
 
 ---
 

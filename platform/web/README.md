@@ -28,6 +28,9 @@ python3 serve.py --host 127.0.0.1 --port 7900
 
 # 本地开发：没有飞书，用「填学员 ID 直接进」
 python3 serve.py --dev-login
+
+# 刚 clone、一个学员都没有时：顺手造一份只有档案的开发学员（没有容器、没有 key，可重复）
+python3 serve.py --dev-login --dev-student stu-dev
 ```
 
 对外用 nginx/Caddy 终止 TLS 再反代到这里，并把 `X-Forwarded-Proto` 传进来
@@ -37,6 +40,10 @@ python3 serve.py --dev-login
 
 `--dev-login` 等于没有认证。所以：必须显式打开、必须 `--host 127.0.0.1`、
 必须**没有**配飞书应用（配了就说明是正式环境）。三条缺一不可，少一条直接退出。
+
+开发登录**只认档案里有的学员**，这一条不放开 —— 否则任何人填个 ID 就能造出学员。
+空仓库想看页面，用 `--dev-student <ID>` 造档案：它只写一份 JSON（`dev_seed: true`），
+`sandctl list` 里显示为「无(开发)」，`sandctl destroy <ID>` 删掉。要真沙盒还是走 `sandctl create`。
 
 ## 五个页面
 
